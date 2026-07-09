@@ -345,6 +345,7 @@ function getArea(id) {
 function getEstado(id)      { return ESTADOS.find(e => e.id === id) || { label: id, badge: '', emoji: '?' }; }
 function getPrioridad(id)   { return PRIORIDADES.find(p => p.id === id) || { label: id, badge: '', emoji: '' }; }
 function getEstadoPago(id)  { return ESTADOS_PAGO.find(e => e.id === id) || { label: id, badge: '' }; }
+function getMetodoPago(id)  { return typeof METODOS_PAGO !== 'undefined' ? (METODOS_PAGO.find(m => m.id === id) || { label: id, emoji: '' }) : { label: id, emoji: '' }; }
 function getEstadoSrv(id)   { return ESTADOS_SERVICIO.find(e => e.id === id) || { label: id, badge: '', emoji: '?' }; }
 function getCat(id)         { return CATEGORIAS_GASTO.find(c => c.id === id) || { label: id, dot: '' }; }
 function getUserById(id)    { return (Store.get('users') || []).find(u => u.id === id); }

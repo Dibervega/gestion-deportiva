@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // FIREBASE CONFIG — Proyecto botfather-8b715
 // ============================================================
 const FIREBASE_CONFIG = {
@@ -73,6 +73,13 @@ const ESTADOS_PAGO = [
   { id: "parcial",  label: "Parcial",   badge: "badge-partial" },
   { id: "pagado",   label: "Pagado",    badge: "badge-paid"    },
   { id: "vencido",  label: "Vencido",   badge: "badge-overdue" },
+];
+const METODOS_PAGO = [
+  { id: "efectivo",     label: "Efectivo",         emoji: "💵" },
+  { id: "transferencia",label: "Transferencia",    emoji: "🏦" },
+  { id: "tarjeta",      label: "Tarjeta / TPV",    emoji: "💳" },
+  { id: "cheque",       label: "Cheque",           emoji: "🧾" },
+  { id: "plataforma",   label: "Plataforma (Stripe/PayPal)", emoji: "🌐" },
 ];
 const ESTADOS_SERVICIO = [
   { id: "pendiente",   label: "Pendiente",  badge: "badge-pending",   emoji: "⏳" },
