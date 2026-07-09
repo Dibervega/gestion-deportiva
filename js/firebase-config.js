@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // FIREBASE CONFIG — Proyecto botfather-8b715
 // ============================================================
 const FIREBASE_CONFIG = {
@@ -8,7 +8,8 @@ const FIREBASE_CONFIG = {
   storageBucket:     "botfather-8b715.firebasestorage.app",
   messagingSenderId: "83288241294",
   appId:             "1:83288241294:web:c7add6d919af7b985605df",
-  measurementId:     "G-RNCV96476M"
+  measurementId:     "G-RNCV96476M",
+  databaseURL:       "https://botfather-8b715-default-rtdb.firebaseio.com"
 };
 
 const EMAILJS_CONFIG = {
@@ -85,165 +86,105 @@ const ROLES = [
   { id: "visualizador", label: "Visualizador",   permisos: ["read"] },
 ];
 
-
-
-// ── FireSync: Sincronización bidireccional localStorage ↔ Firestore ──
+// -- FireSync: Sincronizacion localStorage <-> Realtime Database (GRATUITO) --
 const FireSync = {
   db: null,
   _ready: false,
-  _unsubscribers: [],
-  _syncing: false,
 
-  // Mapeo: clave localStorage → colección Firestore
-  COLLECTIONS: {
+  PATHS: {
     solicitudes:    'solicitudes',
-    users:          'usuarios',
     notificaciones: 'notificaciones',
+    usuarios:       'usuarios',
     bot_users:      'bot_users',
   },
 
   async init() {
     try {
       if (typeof firebase === 'undefined') {
-        console.warn('⚠️ Firebase SDK no disponible — modo solo localStorage');
+        console.warn('Firebase SDK no disponible');
         return false;
       }
       if (!firebase.apps.length) {
         firebase.initializeApp(FIREBASE_CONFIG);
       }
-      this.db = firebase.firestore();
+      this.db = firebase.database();
       this._ready = true;
-
-      // Cargar datos iniciales desde Firestore
       await this._loadAll();
-
-      // Escuchar cambios en tiempo real (bot → web)
       this._startListeners();
-
-      console.log('🔥 FireSync conectado a botfather-8b715');
+      console.log('Firebase conectado a botfather-8b715 (Realtime Database)');
       return true;
     } catch(e) {
-      console.warn('⚠️ FireSync error:', e.message);
+      console.warn('FireSync error:', e.message);
       return false;
     }
   },
 
-  // Cargar todas las colecciones desde Firestore al iniciar
   async _loadAll() {
-    for (const [storeKey, collection] of Object.entries(this.COLLECTIONS)) {
+    for (const [storeKey, path] of Object.entries(this.PATHS)) {
       try {
-        const snap = await this.db.collection(collection).get();
-        if (!snap.empty) {
-          const data = snap.docs.map(d => d.data());
-          localStorage.setItem('gestion_' + storeKey, JSON.stringify(data));
+        const snap = await this.db.ref(path).get();
+        if (snap.exists()) {
+          const val = snap.val();
+          const data = val ? (Array.isArray(val) ? val : Object.values(val)).filter(Boolean) : [];
+          if (data.length) localStorage.setItem('gestion_' + storeKey, JSON.stringify(data));
         }
       } catch(e) {
-        console.warn(`FireSync: no se pudo cargar ${collection}:`, e.message);
+        console.warn('FireSync: no se pudo cargar ' + path + ':', e.message);
       }
     }
-    // Cargar áreas (guardadas como documento)
-    try {
-      const areaDoc = await this.db.collection('config').doc('areas').get();
-      if (areaDoc.exists) {
-        const lista = areaDoc.data().lista;
-        if (lista && lista.length) {
-          localStorage.setItem('gestion_areas', JSON.stringify(lista));
-        }
-      }
-    } catch(e) {}
   },
 
-  // Listener en tiempo real sobre solicitudes (bot crea → web se actualiza)
   _startListeners() {
     if (!this.db) return;
+    const solRef = this.db.ref('solicitudes');
 
-    // Escuchar solicitudes en tiempo real
-    const unsubSolicitudes = this.db.collection('solicitudes')
-      .onSnapshot(snap => {
-        if (this._syncing) return; // Evitar loop
-        const data = snap.docs.map(d => d.data());
-        localStorage.setItem('gestion_solicitudes', JSON.stringify(data));
-        // Notificar a la UI si está escuchando
-        if (typeof AppState !== 'undefined') {
-          AppState.solicitudes = data;
-          AppState._emit('solicitudes', data);
+    solRef.on('value', snap => {
+      const val = snap.val();
+      const data = val ? (Array.isArray(val) ? val : Object.values(val)).filter(Boolean) : [];
+      localStorage.setItem('gestion_solicitudes', JSON.stringify(data));
+      if (typeof AppState !== 'undefined') { AppState.solicitudes = data; AppState._emit('solicitudes', data); }
+      if (typeof updateNotifBadge === 'function') updateNotifBadge();
+    });
+
+    solRef.on('child_added', snap => {
+      const sol = snap.val();
+      if (!sol) return;
+      if (sol.creadoViaTelegram && sol.createdAt) {
+        const age = Date.now() - new Date(sol.createdAt).getTime();
+        if (age < 30000 && typeof Toast !== 'undefined') {
+          Toast.success('Nueva solicitud desde Telegram: ' + (sol.titulo || sol.cliente || ''));
         }
-        // Actualizar badge de notificaciones
-        if (typeof updateNotifBadge === 'function') updateNotifBadge();
-        // Si es una solicitud nueva del bot, mostrar toast
-        snap.docChanges().forEach(change => {
-          if (change.type === 'added') {
-            const sol = change.doc.data();
-            if (sol.creadoViaTelegram && sol.createdAt) {
-              const age = Date.now() - new Date(sol.createdAt).getTime();
-              if (age < 30000) { // Solo si es muy reciente (< 30 seg)
-                if (typeof Toast !== 'undefined') {
-                  Toast.success(`🤖 Nueva solicitud desde Telegram: ${sol.titulo}`);
-                }
-              }
-            }
-          }
-        });
-      }, err => console.warn('FireSync listener error:', err.message));
+      }
+    });
 
-    // Escuchar notificaciones en tiempo real
-    const unsubNotifs = this.db.collection('notificaciones')
-      .where('leida', '==', false)
-      .onSnapshot(snap => {
-        if (this._syncing) return;
-        const todas = JSON.parse(localStorage.getItem('gestion_notificaciones') || '[]');
-        snap.docChanges().forEach(change => {
-          if (change.type === 'added') {
-            const notif = change.doc.data();
-            const existe = todas.find(n => n.id === notif.id);
-            if (!existe) todas.unshift(notif);
-          }
-        });
+    this.db.ref('notificaciones').on('child_added', snap => {
+      const notif = snap.val();
+      if (!notif) return;
+      const todas = JSON.parse(localStorage.getItem('gestion_notificaciones') || '[]');
+      if (!todas.find(n => n.id === notif.id)) {
+        todas.unshift(notif);
         localStorage.setItem('gestion_notificaciones', JSON.stringify(todas));
         if (typeof updateNotifBadge === 'function') updateNotifBadge();
-      }, () => {});
-
-    this._unsubscribers.push(unsubSolicitudes, unsubNotifs);
-  },
-
-  // Escribir en Firestore cuando Store.set() es llamado
-  async syncWrite(storeKey, data) {
-    if (!this._ready || !this.db) return;
-    const collection = this.COLLECTIONS[storeKey];
-    if (!collection) {
-      // Manejar áreas como documento especial
-      if (storeKey === 'areas') {
-        try {
-          await this.db.collection('config').doc('areas').set({ lista: data });
-        } catch(e) { console.warn('FireSync areas write error:', e.message); }
       }
-      return;
-    }
-    if (!Array.isArray(data)) return;
-    this._syncing = true;
-    try {
-      const batch = this.db.batch();
-      data.forEach(item => {
-        if (item && item.id) {
-          const ref = this.db.collection(collection).doc(String(item.id));
-          batch.set(ref, item, { merge: true });
-        }
-      });
-      await batch.commit();
-    } catch(e) {
-      console.warn(`FireSync write error (${collection}):`, e.message);
-    } finally {
-      this._syncing = false;
-    }
+    });
   },
 
-  // Eliminar un documento de Firestore
+  async syncWrite(storeKey, data) {
+    if (!this._ready || !this.db || !Array.isArray(data)) return;
+    const path = this.PATHS[storeKey];
+    if (!path) return;
+    try {
+      const obj = {};
+      data.forEach(item => { if (item && item.id) obj[item.id] = item; });
+      await this.db.ref(path).set(obj);
+    } catch(e) { console.warn('FireSync write error:', e.message); }
+  },
+
   async syncDelete(storeKey, id) {
     if (!this._ready || !this.db) return;
-    const collection = this.COLLECTIONS[storeKey];
-    if (!collection || !id) return;
-    try {
-      await this.db.collection(collection).doc(String(id)).delete();
-    } catch(e) { console.warn(`FireSync delete error:`, e.message); }
+    const path = this.PATHS[storeKey];
+    if (!path || !id) return;
+    try { await this.db.ref(path + '/' + id).remove(); }
+    catch(e) { console.warn('FireSync delete error:', e.message); }
   },
 };
