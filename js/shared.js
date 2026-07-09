@@ -13,6 +13,7 @@ function buildSidebar(activePage) {
     { page: 'calendario',        href: 'calendario.html',         icon: '📅', label: 'Calendario' },
     { page: 'cierres',           href: 'cierres.html',            icon: '📄', label: 'Cierres / Reportes', adminOnly: true },
     { page: 'financiero',        href: 'financiero.html',         icon: '💰', label: 'Financiero', adminOnly: true },
+    { page: 'gastos',            href: 'gastos-generales.html',   icon: '💸', label: 'Gastos Generales' },
     { page: 'reportes',          href: 'reportes.html',           icon: '📈', label: 'Reportes' },
     { page: 'admin',             href: 'admin.html',              icon: '⚙️', label: 'Administración', adminOnly: true },
   ];

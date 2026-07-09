@@ -18,6 +18,15 @@ const Solicitudes = {
   getAll(filtros = {}) {
     let data = Store.get('solicitudes') || [];
 
+    // Filtro por roles/áreas
+    if (typeof canSeeAllProjects === 'function' && !canSeeAllProjects()) {
+      const allowedAreas = getUserAreas();
+      data = data.filter(s => {
+        const pAreas = Array.isArray(s.areas) ? s.areas : [s.area].filter(Boolean);
+        return pAreas.some(a => allowedAreas.includes(a));
+      });
+    }
+
     if (filtros.area && filtros.area !== 'all')
       data = data.filter(s => {
         const areas = Array.isArray(s.areas) ? s.areas : [s.area].filter(Boolean);
@@ -137,7 +146,7 @@ const Solicitudes = {
   },
 
   getStats() {
-    const data = Store.get('solicitudes') || [];
+    const data = this.getAll();
     const ahora = new Date();
     const inicioSemana = new Date(ahora - 7 * 86400000);
     const activas = data.filter(s => !['completado','cancelado'].includes(s.estado));

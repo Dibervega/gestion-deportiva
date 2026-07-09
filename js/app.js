@@ -393,6 +393,21 @@ function canSeeFinancials() {
   return !user || user.rol === 'admin';
 }
 
+// Saber si el usuario puede ver TODOS los proyectos (admin o rol sin restricción de áreas)
+function canSeeAllProjects() {
+  const user = typeof Auth !== 'undefined' ? Auth.getCurrentUser() : null;
+  return !user || user.rol === 'admin';
+}
+
+// Obtener las áreas a las que tiene acceso el usuario actual
+function getUserAreas() {
+  const user = typeof Auth !== 'undefined' ? Auth.getCurrentUser() : null;
+  if (!user) return [];
+  if (user.rol === 'admin') return typeof getAreas === 'function' ? getAreas().map(a => a.id) : [];
+  // Retorna las áreas asignadas al usuario, o vacío si no tiene
+  return Array.isArray(user.areas) ? user.areas : [];
+}
+
 // ── Sidebar / UI helpers ──────────────────────────────────────
 function setActiveNav(page) {
   $$('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
