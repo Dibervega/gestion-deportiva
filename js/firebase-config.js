@@ -78,13 +78,6 @@ const ESTADOS_SERVICIO = [
   { id: "en_proceso",  label: "En Proceso", badge: "badge-progress",  emoji: "🔄" },
   { id: "entregado",   label: "Entregado",  badge: "badge-completed", emoji: "✅" },
 ];
-const METODOS_PAGO = [
-  { id: 'efectivo',     label: 'Efectivo',            emoji: '💵' },
-  { id: 'transferencia',label: 'Transferencia',        emoji: '🏦' },
-  { id: 'tarjeta',      label: 'Tarjeta',              emoji: '💳' },
-  { id: 'cheque',       label: 'Cheque',               emoji: '📝' },
-  { id: 'credito',      label: 'Crédito / Cartera',   emoji: '📊' },
-];
 const UNIDADES = ["unidades","horas","días","eventos","metros","piezas","personas","kg","m²"];
 const ROLES = [
   { id: "admin",        label: "Administrador",  permisos: ["all"] },
@@ -92,7 +85,7 @@ const ROLES = [
   { id: "visualizador", label: "Visualizador",   permisos: ["read"] },
 ];
 
-function getMetodoPago(id) { return METODOS_PAGO.find(m => m.id === id) || { label: id, emoji: '💰' }; }
+
 
 // ── FireSync: Sincronización bidireccional localStorage ↔ Firestore ──
 const FireSync = {
