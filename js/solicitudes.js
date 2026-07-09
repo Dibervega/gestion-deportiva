@@ -353,7 +353,45 @@ const Financiero = {
     Store.set('solicitudes', solicitudes);
   },
 
-  // ── FINANCIERO GENERAL ────────────────────────────────────
+  // ── FINANCIERO GENERAL Y PAGOS ────────────────────────────
+  agregarPago(solicitudId, pago) {
+    const solicitudes = Store.get('solicitudes') || [];
+    const idx = solicitudes.findIndex(s => s.id === solicitudId);
+    if (idx < 0) throw new Error('Solicitud no encontrada');
+    const user = Auth.getCurrentUser();
+    
+    const nuevoPago = {
+      id: generateId(),
+      monto: parseFloat(pago.monto) || 0,
+      fecha: pago.fecha || new Date().toISOString().split('T')[0],
+      metodoPago: pago.metodoPago || 'transferencia',
+      comprobante: pago.comprobante || '',
+      notas: pago.notas || '',
+      registradoPor: user?.id || null,
+      creadoEn: new Date().toISOString(),
+    };
+    
+    solicitudes[idx].financiero = solicitudes[idx].financiero || {};
+    solicitudes[idx].financiero.pagos = solicitudes[idx].financiero.pagos || [];
+    solicitudes[idx].financiero.pagos.push(nuevoPago);
+    solicitudes[idx].updatedAt = new Date().toISOString();
+    Store.set('solicitudes', solicitudes);
+    addNotification('pago', `Pago cliente: ${Fmt.currency(nuevoPago.monto)} — ${solicitudes[idx].titulo}`);
+    return nuevoPago;
+  },
+
+  eliminarPago(solicitudId, pagoId) {
+    if (!Auth.can('all')) throw new Error('Solo admins pueden eliminar pagos');
+    const solicitudes = Store.get('solicitudes') || [];
+    const idx = solicitudes.findIndex(s => s.id === solicitudId);
+    if (idx < 0) return;
+    if (solicitudes[idx].financiero?.pagos) {
+      solicitudes[idx].financiero.pagos = solicitudes[idx].financiero.pagos.filter(p => p.id !== pagoId);
+      solicitudes[idx].updatedAt = new Date().toISOString();
+      Store.set('solicitudes', solicitudes);
+    }
+  },
+
   actualizarFinanciero(solicitudId, datos) {
     const solicitudes = Store.get('solicitudes') || [];
     const idx = solicitudes.findIndex(s => s.id === solicitudId);
@@ -391,7 +429,11 @@ const Financiero = {
   calcularResumen(solicitud) {
     const fin = solicitud?.financiero || {};
     const valorCotizado = fin.valorCotizado || 0;
-    const anticipo   = fin.anticipo || 0;
+    
+    // El anticipo (total pagado por el cliente) es la suma de los pagos registrados o el anticipo fijo por retrocompatibilidad
+    const totalPagos = (fin.pagos||[]).reduce((s,p) => s + (p.monto||0), 0);
+    const anticipo   = totalPagos > 0 ? totalPagos : (fin.anticipo || 0);
+    
     // Solo sumar gastos aprobados o pendientes (excluir rechazados)
     const gastosActivos = (fin.gastos||[]).filter(g => g.estado !== 'rechazado');
     const gastos     = gastosActivos.reduce((s,g) => s + (g.monto||0), 0);
@@ -399,7 +441,7 @@ const Financiero = {
     const gastosPendientes = (fin.gastos||[]).filter(g => g.estado === 'pendiente').reduce((s,g) => s + (g.monto||0), 0);
     const gastosRechazados = (fin.gastos||[]).filter(g => g.estado === 'rechazado').reduce((s,g) => s + (g.monto||0), 0);
     const comisiones = (fin.comisiones||[]).reduce((s,c) => s + (c.monto||0), 0);
-    const saldo      = valorCotizado - anticipo;
+    const saldo      = Math.max(0, valorCotizado - anticipo);
     const utilidad   = valorCotizado - gastos - comisiones;
     const margen     = valorCotizado ? Fmt.percent(utilidad, valorCotizado) : 0;
     return { valorCotizado, anticipo, saldo, gastos, gastosAprobados, gastosPendientes, gastosRechazados, comisiones, utilidad, margen };
@@ -408,7 +450,10 @@ const Financiero = {
   getResumenGlobal() {
     const data = Store.get('solicitudes') || [];
     const totalCotizado   = data.reduce((s,x) => s + (x.financiero?.valorCotizado||0), 0);
-    const totalAnticipo   = data.reduce((s,x) => s + (x.financiero?.anticipo||0), 0);
+    const totalAnticipo   = data.reduce((s,x) => {
+      const p = (x.financiero?.pagos||[]).reduce((sum, pago) => sum + (pago.monto||0), 0);
+      return s + (p > 0 ? p : (x.financiero?.anticipo||0));
+    }, 0);
     const totalGastos     = data.reduce((s,x) => s + (x.financiero?.gastos||[]).filter(g=>g.estado!=='rechazado').reduce((a,g) => a+(g.monto||0),0), 0);
     const totalComisiones = data.reduce((s,x) => s + (x.financiero?.comisiones||[]).reduce((a,c) => a+(c.monto||0),0), 0);
     const totalUtilidad   = totalCotizado - totalGastos - totalComisiones;

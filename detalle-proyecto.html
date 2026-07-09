@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -357,6 +357,7 @@ function renderFinancieroHTML(res) {
     <div class="card-header">
       <div class="card-title">💰 Control Financiero <span style="font-size:.7rem;font-weight:400;color:var(--danger-fg);background:var(--danger-bg);padding:2px 8px;border-radius:var(--radius-full);border:1px solid rgba(244,63,94,.2)">Solo Admin</span></div>
       ${canWrite ? `<div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn-secondary btn-sm" onclick="openAgregarPago()">+ Pago</button>
         <button class="btn btn-secondary btn-sm" onclick="openAgregarGasto()">+ Gasto</button>
         <button class="btn btn-secondary btn-sm" onclick="openEditarFinanciero()">✏️ Editar</button>
         <button class="btn btn-ghost btn-sm" onclick="window.open('reporte-evento.html?id=${SOL.id}','_blank')">📄 Ver Reporte</button>
@@ -388,6 +389,12 @@ function renderFinancieroHTML(res) {
       <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-5)">
         <span style="font-size:var(--text-sm);color:var(--text-secondary)">Estado de pago:</span>
         <span class="badge ${getEstadoPago(fin.estadoPago||'sin_pago').badge}">${getEstadoPago(fin.estadoPago||'sin_pago').label}</span>
+      </div>
+
+      <!-- Pagos -->
+      <div style="margin-bottom:var(--space-5)">
+        <div style="font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-3)">💸 Registro de Pagos (Cliente)</div>
+        <div id="pagos-list">${renderPagosHTML(fin.pagos||[])}</div>
       </div>
 
       <!-- Gastos -->
@@ -437,6 +444,38 @@ function renderFinKPI(label, val, color) {
     <div style="font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:4px">${label}</div>
     <div style="font-family:var(--font-display);font-size:var(--text-base);font-weight:700;color:${color||'var(--text-primary)'}">${val}</div>
   </div>`;
+}
+
+function renderPagosHTML(pagos) {
+  if (!pagos.length) return `<div style="text-align:center;padding:var(--space-6);color:var(--text-muted);font-size:var(--text-sm)">Sin pagos registrados</div>`;
+
+  return pagos.map(p => {
+    const mp = p.metodoPago ? getMetodoPago(p.metodoPago) : null;
+    const u = getUserById(p.registradoPor);
+    return `<div class="expense-row" style="flex-direction:column;align-items:stretch;gap:var(--space-2)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)">
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <div class="expense-category-dot" style="background:var(--success-500)"></div>
+          <div>
+            <div style="font-size:var(--text-sm);font-weight:600">${Fmt.date(p.fecha)}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+              ${mp ? `· ${mp.emoji} ${mp.label}` : ''}
+              ${p.comprobante ? `· Ref: <span style="font-family:var(--font-mono)">${escHtml(p.comprobante)}</span>` : ''}
+              ${u ? `· Por: ${escHtml(u.nombre)}` : ''}
+              ${p.notas ? `· <span style="font-style:italic">${escHtml(p.notas)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span style="font-family:var(--font-display);font-weight:700;font-size:1.1rem;color:var(--success-fg)">${Fmt.currency(p.monto)}</span>
+        </div>
+      </div>
+      ${isAdmin ? `
+      <div style="display:flex;justify-content:flex-end;margin-top:var(--space-2);padding-top:var(--space-2);border-top:1px solid var(--border-subtle)">
+        <button class="btn btn-ghost btn-sm" style="font-size:.65rem;color:var(--danger-fg)" onclick="eliminarPago('${p.id}')">🗑️ Eliminar</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 function renderGastosHTML(gastos) {
@@ -795,6 +834,78 @@ function openCambiarEstado() {
 }
 
 // ── Acciones Financiero ─────────────────────────────────────
+
+function openAgregarPago() {
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">💸 Registrar Pago Cliente</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Monto (Abono) <span class="required">*</span></label>
+            <input class="form-control" type="number" id="p-monto" placeholder="0" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha <span class="required">*</span></label>
+            <input class="form-control" type="date" id="p-fecha" value="${new Date().toISOString().split('T')[0]}" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Método de Pago</label>
+            <select class="form-control" id="p-metodo">
+              ${METODOS_PAGO.map(m => `<option value="${m.id}">${m.emoji} ${m.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Comprobante / Referencia</label>
+            <input class="form-control" id="p-comprobante" placeholder="Ref. transferencia" style="font-family:var(--font-mono)" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas adicionales</label>
+          <input class="form-control" id="p-notas" placeholder="Observaciones del pago..." />
+        </div>
+        <div style="background:var(--info-bg);border:1px solid rgba(0,212,255,.2);border-radius:var(--radius-md);padding:var(--space-3);font-size:var(--text-xs);color:var(--info-fg)">
+          💡 Los pagos registrados se sumarán automáticamente como anticipo en el control financiero.
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-pago">💾 Registrar Pago</button>
+    </div>
+  `, { size: 'lg' });
+
+  modal.querySelector('#btn-guardar-pago').addEventListener('click', () => {
+    const monto = parseFloat(modal.querySelector('#p-monto').value);
+    const fecha = modal.querySelector('#p-fecha').value;
+    if (!monto || monto <= 0 || !fecha) { Toast.warning('Monto y fecha son obligatorios'); return; }
+    try {
+      Financiero.agregarPago(SOL.id, {
+        monto,
+        fecha,
+        metodoPago:  modal.querySelector('#p-metodo').value,
+        comprobante: modal.querySelector('#p-comprobante').value.trim(),
+        notas:       modal.querySelector('#p-notas').value.trim(),
+      });
+      close();
+      Toast.success('Pago registrado correctamente');
+      reload();
+    } catch(e) { Toast.error(e.message); }
+  });
+}
+
+function eliminarPago(pagoId) {
+  confirmDialog('¿Eliminar este pago? El anticipo se recalculará automáticamente.').then(ok => {
+    if (!ok) return;
+    try {
+      Financiero.eliminarPago(SOL.id, pagoId);
+      Toast.success('Pago eliminado');
+      reload();
+    } catch(e) { Toast.error(e.message); }
+  });
+}
 
 function openAgregarGasto() {
   const { modal, close } = Modal.open(`
