@@ -374,9 +374,10 @@ function renderMainChart(tipo) {
     data   = ESTADOS.map(e => stats.porEstado[e.id] || 0);
     colors = ['#64748b','#5865f2','#f59e0b','#00d4ff','#10b981','#f43f5e'];
   } else {
-    labels = AREAS.map(a => a.nombre);
-    data   = AREAS.map(a => stats.porArea[a.id]?.total || 0);
-    colors = AREAS.map(a => a.color);
+    const areas = getAreas();
+    labels = areas.map(a => a.nombre);
+    data   = areas.map(a => stats.porArea[a.id]?.total || 0);
+    colors = areas.map(a => a.color);
   }
 
   mainChart = new Chart(ctx, {
@@ -411,9 +412,10 @@ function renderDonutChart() {
   if (donutChart) donutChart.destroy();
 
   const stats = Solicitudes.getStats();
-  const labels = AREAS.filter(a => stats.porArea[a.id]?.total > 0).map(a => a.nombre);
-  const data   = AREAS.filter(a => stats.porArea[a.id]?.total > 0).map(a => stats.porArea[a.id]?.total || 0);
-  const colors = AREAS.filter(a => stats.porArea[a.id]?.total > 0).map(a => a.color);
+  const allAreas = getAreas();
+  const labels = allAreas.filter(a => stats.porArea[a.id]?.total > 0).map(a => a.nombre);
+  const data   = allAreas.filter(a => stats.porArea[a.id]?.total > 0).map(a => stats.porArea[a.id]?.total || 0);
+  const colors = allAreas.filter(a => stats.porArea[a.id]?.total > 0).map(a => a.color);
 
   donutChart = new Chart(ctx, {
     type: 'doughnut',
@@ -434,7 +436,7 @@ function renderDonutChart() {
   const legend = document.getElementById('areas-legend');
   if (legend) {
     const total = data.reduce((a,b) => a+b, 0);
-    legend.innerHTML = AREAS.filter(a => stats.porArea[a.id]?.total > 0).map((a, i) => `
+    legend.innerHTML = allAreas.filter(a => stats.porArea[a.id]?.total > 0).map((a, i) => `
       <div style="display:flex;align-items:center;justify-content:space-between;font-size:var(--text-xs)">
         <div style="display:flex;align-items:center;gap:6px">
           <span style="width:8px;height:8px;border-radius:50%;background:${a.color};display:inline-block;flex-shrink:0"></span>
