@@ -1,18 +1,9 @@
-﻿// ============================================================
+// ============================================================
 // SOLICITUDES.JS — CRUD Multi-área + Servicios + Gastos Contables + Cierre
 // ============================================================
 'use strict';
 
-// ── Constantes de Gastos ──────────────────────────────────────
-const METODOS_PAGO = [
-  { id: 'efectivo',      label: 'Efectivo',           emoji: '💵' },
-  { id: 'transferencia', label: 'Transferencia',       emoji: '🏦' },
-  { id: 'tarjeta',       label: 'Tarjeta de Crédito',  emoji: '💳' },
-  { id: 'debito',        label: 'Tarjeta Débito',      emoji: '💳' },
-  { id: 'cheque',        label: 'Cheque',              emoji: '📑' },
-  { id: 'otro',          label: 'Otro',                emoji: '📌' },
-];
-
+// ── Estados de Gasto ─────────────────────────────────────────
 const ESTADOS_GASTO = [
   { id: 'pendiente',  label: 'Pendiente',  badge: 'badge-pending',   emoji: '⏳' },
   { id: 'aprobado',   label: 'Aprobado',   badge: 'badge-completed', emoji: '✅' },
@@ -21,9 +12,6 @@ const ESTADOS_GASTO = [
 
 function getEstadoGasto(id) {
   return ESTADOS_GASTO.find(e => e.id === id) || ESTADOS_GASTO[0];
-}
-function getMetodoPago(id) {
-  return METODOS_PAGO.find(m => m.id === id) || { label: id || '—', emoji: '💰' };
 }
 
 const Solicitudes = {
