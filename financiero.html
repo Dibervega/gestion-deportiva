@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Financiero — Gestión Deportiva</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div id="app-loader"><div class="loader-logo">🏆 Gestión Deportiva</div><div class="loader-bar"><div class="loader-bar-fill"></div></div></div>
+<div id="toast-container"></div>
+
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+
+    <main class="page-content page-enter">
+
+      <!-- KPIs Financieros -->
+      <div class="grid-kpi" id="fin-kpis"></div>
+
+      <!-- Gráficas -->
+      <div class="grid-2">
+
+        <!-- Ingresos vs Gastos por Área -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📊 Ingresos vs Gastos por Área</div>
+          </div>
+          <div class="card-body">
+            <div class="chart-container" style="height:280px">
+              <canvas id="chart-areas"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gastos por Categoría -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📉 Distribución de Gastos</div>
+          </div>
+          <div class="card-body">
+            <div class="chart-container" style="height:200px">
+              <canvas id="chart-categorias"></canvas>
+            </div>
+            <div id="cat-legend" style="margin-top:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2)"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Estado de Pagos -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">💳 Estado de Cobros por Proyecto</div>
+          <div class="filter-bar">
+            <select class="form-control" id="filter-ep" style="width:auto">
+              <option value="all">Todos los estados</option>
+              ${ESTADOS_PAGO.map(e => `<option value="${e.id}">${e.label}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="table-wrapper" style="border:none;border-radius:0">
+            <table class="table table-clickable">
+              <thead>
+                <tr>
+                  <th>Ticket</th>
+                  <th>Proyecto</th>
+                  <th>Áreas</th>
+                  <th>Cotizado</th>
+                  <th>Anticipo</th>
+                  <th>Saldo</th>
+                  <th>Gastos</th>
+                  <th>Utilidad</th>
+                  <th>Margen</th>
+                  <th>Pago</th>
+                </tr>
+              </thead>
+              <tbody id="fin-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card-footer" id="fin-totals"></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/email.js"></script>
+<script src="js/solicitudes.js"></script>
+<script src="js/shared.js"></script>
+<script>
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initPage('financiero', { title: 'Panel Financiero', subtitle: 'Control de ingresos, gastos y rentabilidad' })) return;
+
+  if (!canSeeFinancials()) {
+    Toast.warning('Acceso restringido');
+    window.location.href = 'dashboard.html';
+    return;
+  }
+
+  renderKPIs();
+  renderCharts();
+  renderTable();
+
+  document.getElementById('filter-ep')?.addEventListener('change', renderTable);
+});
+
+function renderKPIs() {
+  const cont = document.getElementById('fin-kpis');
+  const res  = Financiero.getResumenGlobal();
+  if (!cont) return;
+
+  const kpis = [
+    { label: 'Total Cotizado', value: Fmt.currency(res.totalCotizado, true), icon: '💵', cls: 'kpi-primary' },
+    { label: 'Anticipo Recibido', value: Fmt.currency(res.totalAnticipo, true), icon: '✅', cls: 'kpi-success' },
+    { label: 'Por Cobrar', value: Fmt.currency(res.pendienteCobro, true), icon: '⏳', cls: 'kpi-warning' },
+    { label: 'Total Gastos', value: Fmt.currency(res.totalGastos, true), icon: '📉', cls: 'kpi-danger' },
+    { label: 'Total Comisiones', value: Fmt.currency(res.totalComisiones, true), icon: '🤝', cls: 'kpi-violet' },
+    { label: 'Utilidad Neta', value: Fmt.currency(res.totalUtilidad, true), icon: '📈', cls: 'kpi-cyan' },
+  ];
+
+  cont.innerHTML = kpis.map((k,i) => `
+    <div class="kpi-card ${k.cls}" style="animation-delay:${i*50}ms">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value">${k.value}</div>
+      <div class="kpi-icon ${k.cls}">${k.icon}</div>
+    </div>
+  `).join('');
+}
+
+function renderCharts() {
+  const res = Financiero.getResumenGlobal();
+
+  // Chart: Ingresos vs Gastos por área
+  const areaCanvas = document.getElementById('chart-areas');
+  if (areaCanvas) {
+    const ctx = areaCanvas.getContext('2d');
+    const activas = AREAS.filter(a => res.porArea[a.id]?.cotizado > 0);
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: activas.map(a => a.nombre),
+        datasets: [
+          { label: 'Cotizado', data: activas.map(a => res.porArea[a.id].cotizado), backgroundColor: 'rgba(88,101,242,0.7)', borderColor: '#5865f2', borderWidth: 2, borderRadius: 6 },
+          { label: 'Gastos',   data: activas.map(a => res.porArea[a.id].gastos),   backgroundColor: 'rgba(244,63,94,0.6)',  borderColor: '#f43f5e', borderWidth: 2, borderRadius: 6 },
+          { label: 'Utilidad', data: activas.map(a => res.porArea[a.id].utilidad), backgroundColor: 'rgba(16,185,129,0.6)', borderColor: '#10b981', borderWidth: 2, borderRadius: 6 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#8b91a7', font: { size: 11 } } } },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b91a7', font: { size: 10 } } },
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b91a7', callback: v => Fmt.currency(v, true) } },
+        }
+      }
+    });
+  }
+
+  // Chart: Gastos por categoría (dona)
+  const catCanvas = document.getElementById('chart-categorias');
+  if (catCanvas) {
+    const ctx2 = catCanvas.getContext('2d');
+    const actCats = CATEGORIAS_GASTO.filter(c => res.porCategoria[c.id] > 0);
+    new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: actCats.map(c => c.label),
+        datasets: [{ data: actCats.map(c => res.porCategoria[c.id]), backgroundColor: actCats.map(c => c.color), borderWidth: 0, hoverOffset: 8 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false } } }
+    });
+
+    // Legend
+    const leg = document.getElementById('cat-legend');
+    const total = actCats.reduce((s,c) => s + res.porCategoria[c.id], 0);
+    if (leg) {
+      leg.innerHTML = actCats.map(c => `
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:var(--text-xs)">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="width:8px;height:8px;border-radius:2px;background:${c.color};display:inline-block"></span>
+            <span style="color:var(--text-secondary)">${c.label}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:var(--space-3)">
+            <span style="color:var(--text-muted)">${Fmt.percent(res.porCategoria[c.id], total)}%</span>
+            <span style="font-weight:600;color:var(--text-primary)">${Fmt.currency(res.porCategoria[c.id])}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+}
+
+function renderTable() {
+  const tbody   = document.getElementById('fin-tbody');
+  const totals  = document.getElementById('fin-totals');
+  const epFilt  = document.getElementById('filter-ep')?.value || 'all';
+  if (!tbody) return;
+
+  let data = Solicitudes.getAll();
+  if (epFilt !== 'all') data = data.filter(s => (s.financiero?.estadoPago || 'sin_pago') === epFilt);
+
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-muted)">Sin resultados</td></tr>`;
+    if (totals) totals.innerHTML = '';
+    return;
+  }
+
+  let tCotizado = 0, tAnticipo = 0, tGastos = 0, tUtilidad = 0;
+
+  tbody.innerHTML = data.map(s => {
+    const ep   = getEstadoPago(s.financiero?.estadoPago || 'sin_pago');
+    const res  = Financiero.calcularResumen(s);
+
+    tCotizado  += res.valorCotizado;
+    tAnticipo  += res.anticipo;
+    tGastos    += res.gastos + res.comisiones;
+    tUtilidad  += res.utilidad;
+
+    const margenColor = res.margen >= 20 ? 'var(--success-fg)' : res.margen >= 0 ? 'var(--warning-fg)' : 'var(--danger-fg)';
+
+    return `
+      <tr onclick="window.location.href='detalle-proyecto.html?id=${s.id}'">
+        <td><span style="font-family:var(--font-mono);color:var(--primary-400);font-weight:700;font-size:var(--text-xs)">${escHtml(s.ticketId)}</span></td>
+        <td>
+          <div style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(s.titulo)}</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted)">${escHtml(s.cliente)}</div>
+        </td>
+        <td>${renderAreaBadges(s.areas || [s.area])}</td>
+        <td class="money">${Fmt.currency(res.valorCotizado)}</td>
+        <td class="money positive">${Fmt.currency(res.anticipo)}</td>
+        <td class="money ${res.saldo > 0 ? 'negative' : ''}">${Fmt.currency(res.saldo)}</td>
+        <td class="money negative">${Fmt.currency(res.gastos + res.comisiones)}</td>
+        <td class="money ${res.utilidad >= 0 ? 'positive' : 'negative'}">${Fmt.currency(res.utilidad)}</td>
+        <td>
+          <span style="font-weight:700;color:${margenColor}">${res.margen}%</span>
+          <div class="progress-wrap" style="width:60px;margin-top:4px">
+            <div class="progress-bar ${res.margen >= 0 ? 'success' : 'warning'}" style="width:${Math.max(0,Math.min(100,res.margen))}%"></div>
+          </div>
+        </td>
+        <td><span class="badge ${ep.badge}">${ep.label}</span></td>
+      </tr>
+    `;
+  }).join('');
+
+  if (totals) {
+    const tMargen = Fmt.percent(tUtilidad, tCotizado);
+    totals.innerHTML = `
+      <div style="display:flex;gap:var(--space-8);font-size:var(--text-sm);flex-wrap:wrap">
+        <span style="color:var(--text-muted)">Totales:</span>
+        <span>💵 <strong>${Fmt.currency(tCotizado)}</strong></span>
+        <span>✅ <strong class="text-success">${Fmt.currency(tAnticipo)}</strong></span>
+        <span>📉 <strong class="text-danger">${Fmt.currency(tGastos)}</strong></span>
+        <span>📈 <strong style="color:${tUtilidad >= 0 ? 'var(--success-fg)' : 'var(--danger-fg)'}">${Fmt.currency(tUtilidad)}</strong></span>
+        <span>📊 <strong style="color:${tMargen >= 20 ? 'var(--success-fg)' : 'var(--warning-fg)'}">${tMargen}% margen</strong></span>
+      </div>
+    `;
+  }
+}
+</script>
+</body>
+</html>

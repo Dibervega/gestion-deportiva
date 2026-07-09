@@ -1,0 +1,5 @@
+openai>=1.0.0
+firebase-admin>=6.0.0
+python-dotenv>=1.0.0
+# Nota: python-telegram-bot ya está instalado en Hermes
+# openai SDK se usa tanto para DeepSeek como para Groq (son compatibles)

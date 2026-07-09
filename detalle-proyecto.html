@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Detalle de Proyecto — Gestión Deportiva</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div id="app-loader"><div class="loader-logo">🏆 Gestión Deportiva</div><div class="loader-bar"><div class="loader-bar-fill"></div></div></div>
+<div id="toast-container"></div>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content page-enter" id="project-content"></main>
+  </div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/email.js"></script>
+<script src="js/solicitudes.js"></script>
+<script src="js/shared.js"></script>
+<script>
+let SOL = null;
+let isAdmin = false;
+let canWrite = false;
+let canStatus = false;
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!Auth.requireAuth()) return;
+  const user = Auth.getCurrentUser();
+  isAdmin   = canSeeFinancials();
+  canWrite  = Auth.can('write');
+  canStatus = Auth.can('status');
+
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  if (!id) { window.location.href = 'solicitudes.html'; return; }
+
+  SOL = Solicitudes.getById(id);
+  if (!SOL) { Toast.error('Solicitud no encontrada'); setTimeout(() => location.href='solicitudes.html', 1000); return; }
+
+  buildSidebar('solicitudes');
+  buildTopbar({
+    title: '',
+    actions: `
+      <button class="btn btn-ghost btn-sm" onclick="window.location.href='solicitudes.html'">← Solicitudes</button>
+      <span style="font-family:var(--font-mono);color:var(--primary-400);font-weight:700;font-size:var(--text-sm)">${escHtml(SOL.ticketId)}</span>
+      ${canStatus ? `<button class="btn btn-secondary btn-sm hide-mobile" onclick="openCambiarEstado()">🔄 Estado</button>` : ''}
+      ${canWrite  ? `<button class="btn btn-primary btn-sm hide-mobile"  onclick="openEditarModal()">✏️ Editar</button>` : ''}
+      ${canWrite && isAdmin ? `<button class="btn btn-warning btn-sm hide-mobile" onclick="openCierreEvento()">🔒 Cierre de Evento</button>` : ''}
+    `,
+  });
+  renderSidebarUser(user);
+  renderProject();
+  setTimeout(hideLoader, 300);
+});
+
+function reload() {
+  SOL = Solicitudes.getById(SOL.id);
+  renderProject();
+}
+
+function renderProject() {
+  const cont = document.getElementById('project-content');
+  if (!cont || !SOL) return;
+  document.title = `${SOL.ticketId} — Gestión Deportiva`;
+
+  const areas  = Array.isArray(SOL.areas) ? SOL.areas : [SOL.area].filter(Boolean);
+  const est    = getEstado(SOL.estado);
+  const prio   = getPrioridad(SOL.prioridad);
+  const creador= getUserById(SOL.creadoPor);
+  const asig   = getUserById(SOL.asignadoA);
+  const res    = isAdmin ? Financiero.calcularResumen(SOL) : null;
+
+  const transMap = {
+    pendiente:['en_proceso','cancelado'], en_proceso:['revision','cancelado','pendiente'],
+    revision:['aprobado','en_proceso','cancelado'], aprobado:['completado','en_proceso','cancelado'],
+    completado:[], cancelado:['pendiente'],
+  };
+  const nextStates = transMap[SOL.estado] || [];
+
+  cont.innerHTML = `
+  <!-- Hero -->
+  <div class="project-hero">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-4);flex-wrap:wrap">
+      <div class="min-w-0">
+        <div class="project-number">${escHtml(SOL.ticketId)}</div>
+        <div class="project-hero-title">${escHtml(SOL.titulo)}</div>
+        <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;margin-top:var(--space-3)">
+          ${areas.map(aId => { const a=getArea(aId); return `<span class="badge badge-area">${a.emoji} ${a.nombre}</span>`; }).join('')}
+          <span class="badge ${est.badge}">${est.label}</span>
+          <span class="badge ${prio.badge}">${prio.emoji} ${prio.label}</span>
+        </div>
+      </div>
+      <div class="flex gap-2 hide-mobile">
+        ${canStatus ? `<button class="btn btn-secondary btn-sm" onclick="openCambiarEstado()">🔄 Estado</button>` : ''}
+        ${canWrite  ? `<button class="btn btn-primary  btn-sm" onclick="openEditarModal()">✏️ Editar</button>` : ''}
+      </div>
+    </div>
+
+    <!-- Pipeline -->
+    <div class="status-pipeline" style="margin-top:var(--space-5)">
+      ${['pendiente','en_proceso','revision','aprobado','completado'].map(eid => {
+        const e   = getEstado(eid);
+        const done = (SOL.historial||[]).some(h => h.estado === eid);
+        const act  = SOL.estado === eid;
+        return `<div class="pipeline-step ${act ? 'active' : done ? 'done' : ''}">${e.emoji} ${e.label}</div>`;
+      }).join('')}
+    </div>
+
+    <!-- Info grid -->
+    <div class="info-grid" style="margin-top:var(--space-5)">
+      <div class="info-item"><div class="info-label">👤 Cliente</div><div class="info-value">${escHtml(SOL.cliente)}</div></div>
+      <div class="info-item"><div class="info-label">📅 Fecha Evento</div><div class="info-value">${SOL.fechaEvento ? Fmt.date(SOL.fechaEvento) : '—'}</div></div>
+      <div class="info-item"><div class="info-label">👨‍💼 Asignado</div><div class="info-value">
+        ${asig ? `<div style="display:flex;align-items:center;gap:6px"><div class="avatar avatar-sm" style="background:${avatarColor(asig.nombre)}">${Fmt.initials(asig.nombre)}</div>${escHtml(asig.nombre)}</div>` : '—'}
+      </div></div>
+      <div class="info-item"><div class="info-label">📝 Creado por</div><div class="info-value">${escHtml(creador?.nombre||'—')}</div></div>
+      <div class="info-item"><div class="info-label">🕐 Creado</div><div class="info-value">${Fmt.date(SOL.createdAt)}</div></div>
+      <div class="info-item"><div class="info-label">🔄 Actualizado</div><div class="info-value">${Fmt.relative(SOL.updatedAt)}</div></div>
+    </div>
+
+    ${SOL.descripcion ? `
+    <div style="margin-top:var(--space-4);padding-top:var(--space-4);border-top:1px solid var(--border-subtle)">
+      <div class="info-label">📋 Descripción</div>
+      <p style="font-size:var(--text-sm);color:var(--text-secondary);margin-top:6px;line-height:1.8">${escHtml(SOL.descripcion)}</p>
+    </div>` : ''}
+
+    ${nextStates.length && canStatus ? `
+    <div style="margin-top:var(--space-5);padding-top:var(--space-4);border-top:1px solid var(--border-subtle)">
+      <div class="info-label" style="margin-bottom:var(--space-3)">Mover proyecto a:</div>
+      <div style="display:flex;gap:var(--space-2);flex-wrap:wrap">
+        ${nextStates.map(ns => {
+          const e = getEstado(ns);
+          const cls = ns==='cancelado' ? 'btn-danger' : ns==='completado' ? 'btn-success' : 'btn-secondary';
+          return `<button class="btn ${cls} btn-sm" onclick="cambiarEstadoRapido('${ns}')">${e.emoji} ${e.label}</button>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
+  </div>
+
+  <!-- Grid principal -->
+  <div class="grid-main">
+
+    <!-- Columna izquierda (principal) -->
+    <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+
+      <!-- SERVICIOS CONTRATADOS -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📦 Servicios Contratados</div>
+          ${canWrite ? `<button class="btn btn-primary btn-sm" onclick="openAgregarServicio()">+ Agregar Servicio</button>` : ''}
+        </div>
+        <div class="card-body" style="padding:var(--space-4)">
+          <div id="servicios-container">
+            ${renderServiciosHTML(SOL.servicios || [])}
+          </div>
+        </div>
+        ${(SOL.servicios||[]).length ? `
+        <div class="card-footer">
+          <div style="display:flex;gap:var(--space-4);font-size:var(--text-xs);color:var(--text-muted);flex-wrap:wrap">
+            <span>📦 Total: <strong>${(SOL.servicios||[]).length}</strong></span>
+            <span>⏳ Pendientes: <strong style="color:var(--warning-fg)">${(SOL.servicios||[]).filter(s=>s.estado==='pendiente').length}</strong></span>
+            <span>🔄 En proceso: <strong style="color:var(--primary-300)">${(SOL.servicios||[]).filter(s=>s.estado==='en_proceso').length}</strong></span>
+            <span>✅ Entregados: <strong style="color:var(--success-fg)">${(SOL.servicios||[]).filter(s=>s.estado==='entregado').length}</strong></span>
+          </div>
+        </div>` : ''}
+      </div>
+
+      ${isAdmin ? renderFinancieroHTML(res) : ''}
+
+      <!-- Historial -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">📜 Historial de Actividad</div></div>
+        <div class="card-body">
+          <div class="timeline">
+            ${(SOL.historial||[]).slice().reverse().map(h => {
+              const e = getEstado(h.estado);
+              const u = getUserById(h.usuario);
+              return `
+                <div class="timeline-item">
+                  <div class="timeline-dot">${e.emoji}</div>
+                  <div class="timeline-content">
+                    <div class="timeline-title">${escHtml(e.label)}</div>
+                    <div class="timeline-time">${Fmt.date(h.fecha)} · ${Fmt.relative(h.fecha)}</div>
+                    ${h.nota ? `<div class="timeline-desc">${escHtml(h.nota)}</div>` : ''}
+                    ${u ? `<div class="timeline-time" style="margin-top:2px">Por: ${escHtml(u.nombre)}</div>` : ''}
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /col principal -->
+
+    <!-- Columna derecha -->
+    <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+
+      <!-- Progress por servicio -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">📊 Progreso del Proyecto</div></div>
+        <div class="card-body">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">
+              <span>Avance general</span>
+              <span style="font-weight:700">${getProgressPct(SOL.estado)}%</span>
+            </div>
+            <div class="progress-wrap" style="height:8px">
+              <div class="progress-bar" style="width:${getProgressPct(SOL.estado)}%"></div>
+            </div>
+          </div>
+          ${(SOL.servicios||[]).length ? `
+          <div style="margin-top:var(--space-5);display:flex;flex-direction:column;gap:var(--space-3)">
+            <div style="font-size:var(--text-xs);font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Por área</div>
+            ${getAreas().filter(a => (SOL.areas||[SOL.area]).includes(a.id)).map(a => {
+              const srvArea = (SOL.servicios||[]).filter(s => s.area === a.id);
+              if (!srvArea.length) return '';
+              const ent = srvArea.filter(s => s.estado === 'entregado').length;
+              const pct = Math.round((ent / srvArea.length) * 100);
+              return `
+                <div>
+                  <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);margin-bottom:4px">
+                    <span style="color:var(--text-secondary)">${a.emoji} ${a.nombre}</span>
+                    <span style="font-weight:600;color:${pct===100?'var(--success-fg)':'var(--text-muted)'}">${ent}/${srvArea.length}</span>
+                  </div>
+                  <div class="progress-wrap" style="height:5px">
+                    <div class="progress-bar ${pct===100?'success':''}" style="width:${pct}%"></div>
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>` : ''}
+        </div>
+      </div>
+
+      <!-- Info adicional -->
+      <div class="card">
+        <div class="card-header"><div class="card-title">ℹ️ Detalles</div></div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
+          ${areas.map(aId => { const a=getArea(aId); return `<div class="info-item"><div class="info-label">🏢 Área</div><div class="info-value">${a.emoji} ${a.nombre}</div></div>`; }).join('')}
+          ${SOL.contacto ? `<div class="info-item"><div class="info-label">📞 Contacto</div><div class="info-value">${escHtml(SOL.contacto)}</div></div>` : ''}
+          ${SOL.notas ? `<div class="info-item"><div class="info-label">📝 Notas</div><div class="info-value" style="white-space:pre-line">${escHtml(SOL.notas)}</div></div>` : ''}
+        </div>
+      </div>
+
+    </div><!-- /col derecha -->
+
+  </div><!-- /grid-main -->
+  `;
+
+  // Charts
+  setTimeout(() => {
+    if (isAdmin && (SOL.financiero?.gastos||[]).length) renderGastosChart(SOL.financiero.gastos);
+  }, 100);
+}
+
+// ── Render Helpers ─────────────────────────────────────────
+
+function renderServiciosHTML(servicios) {
+  if (!servicios.length) {
+    return `<div class="empty-state" style="padding:var(--space-8)">
+      <div class="empty-state-icon">📦</div>
+      <div class="empty-state-title">Sin servicios registrados</div>
+      <div class="empty-state-desc">Agrega los servicios que contrató el cliente</div>
+      ${canWrite ? `<button class="btn btn-primary btn-sm" style="margin-top:16px" onclick="openAgregarServicio()">+ Agregar Primer Servicio</button>` : ''}
+    </div>`;
+  }
+
+  // Agrupar por área
+  const grupos = {};
+  const areas = Array.isArray(SOL.areas) ? SOL.areas : [SOL.area].filter(Boolean);
+  areas.forEach(aId => { grupos[aId] = []; });
+  servicios.forEach(srv => {
+    if (grupos[srv.area] !== undefined) grupos[srv.area].push(srv);
+    else { grupos[srv.area] = [srv]; }
+  });
+
+  return Object.entries(grupos).map(([aId, srvs]) => {
+    if (!srvs.length) return '';
+    const a = getArea(aId);
+    return `
+      <div style="margin-bottom:var(--space-5)">
+        <div style="display:flex;align-items:center;gap:var(--space-2);margin-bottom:var(--space-3)">
+          <div style="width:8px;height:8px;border-radius:50%;background:${a.color||'var(--primary-500)'}"></div>
+          <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-secondary)">${a.emoji} ${a.nombre}</span>
+          <span class="badge badge-pending" style="font-size:.6rem">${srvs.length}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          ${srvs.map(srv => renderServicioCard(srv)).join('')}
+        </div>
+      </div>
+    `;
+  }).join('<div class="divider"></div>');
+}
+
+function renderServicioCard(srv) {
+  const estSrv = getEstadoSrv(srv.estado);
+  const asig   = getUserById(srv.responsable);
+  const sem    = semaforoColor(srv.fechaEntrega);
+
+  return `
+    <div class="servicio-card" id="srv-${srv.id}">
+      <div class="servicio-header">
+        <div class="min-w-0 flex-1">
+          <div class="servicio-nombre">${escHtml(srv.nombre)}</div>
+          ${srv.descripcion ? `<div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">${escHtml(srv.descripcion)}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:var(--space-1);flex-shrink:0">
+          <span class="badge ${estSrv.badge}">${estSrv.emoji} ${estSrv.label}</span>
+          ${isAdmin ? `<span class="servicio-precio">${Fmt.currency(srv.precioTotal||0)}</span>` : ''}
+        </div>
+      </div>
+      <div class="servicio-meta">
+        <span style="font-size:var(--text-xs);color:var(--text-secondary)">
+          📦 <strong class="servicio-cantidad">${srv.cantidad}</strong> ${srv.unidad}
+        </span>
+        ${isAdmin && srv.precioUnitario ? `<span style="font-size:var(--text-xs);color:var(--text-muted)">${Fmt.currency(srv.precioUnitario)} c/u</span>` : ''}
+        ${asig ? `<div style="display:flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--text-muted)">
+          <div class="avatar avatar-sm" style="background:${avatarColor(asig.nombre)};width:18px;height:18px;font-size:.5rem">${Fmt.initials(asig.nombre)}</div>
+          ${escHtml(asig.nombre)}
+        </div>` : ''}
+        ${srv.fechaEntrega ? `<div class="servicio-entrega" style="margin-left:auto">
+          📅 ${Fmt.date(srv.fechaEntrega)}
+          <span class="semaforo-pill ${sem.cls}">${sem.emoji} ${sem.label}</span>
+        </div>` : ''}
+      </div>
+      ${srv.notas ? `<div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--space-2);font-style:italic;padding-left:var(--space-2);border-left:2px solid var(--border-default)">${escHtml(srv.notas)}</div>` : ''}
+      ${canStatus || canWrite ? `
+      <div class="servicio-actions" style="margin-top:var(--space-3);padding-top:var(--space-2);border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:var(--space-2)">
+        <div style="display:flex;gap:var(--space-1)">
+          ${srv.estado !== 'pendiente'   ? `<button class="btn btn-ghost btn-sm" onclick="cambiarSrvEstado('${srv.id}','pendiente')" data-tooltip="Marcar pendiente">⏳</button>` : ''}
+          ${srv.estado !== 'en_proceso'  ? `<button class="btn btn-secondary btn-sm" onclick="cambiarSrvEstado('${srv.id}','en_proceso')" data-tooltip="En proceso">🔄</button>` : ''}
+          ${srv.estado !== 'entregado'   ? `<button class="btn btn-success btn-sm" onclick="cambiarSrvEstado('${srv.id}','entregado')" data-tooltip="Marcar entregado">✅ Entregado</button>` : ''}
+        </div>
+        <div style="display:flex;gap:var(--space-1)">
+          ${canWrite ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="openEditarServicio('${srv.id}')" data-tooltip="Editar">✏️</button>` : ''}
+          ${canWrite ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="confirmarEliminarSrv('${srv.id}')" data-tooltip="Eliminar">🗑️</button>` : ''}
+        </div>
+      </div>` : ''}
+    </div>
+  `;
+}
+
+function renderFinancieroHTML(res) {
+  const fin = SOL.financiero || {};
+  return `
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">💰 Control Financiero <span style="font-size:.7rem;font-weight:400;color:var(--danger-fg);background:var(--danger-bg);padding:2px 8px;border-radius:var(--radius-full);border:1px solid rgba(244,63,94,.2)">Solo Admin</span></div>
+      ${canWrite ? `<div style="display:flex;gap:var(--space-2)">
+        <button class="btn btn-secondary btn-sm" onclick="openAgregarGasto()">+ Gasto</button>
+        <button class="btn btn-secondary btn-sm" onclick="openEditarFinanciero()">✏️ Editar</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.open('reporte-evento.html?id=${SOL.id}','_blank')">📄 Ver Reporte</button>
+      </div>` : ''}
+    </div>
+    <div class="card-body">
+      <!-- KPIs -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:var(--space-3);margin-bottom:var(--space-5)">
+        ${renderFinKPI('💵 Cotizado',  Fmt.currency(res.valorCotizado), '')}
+        ${renderFinKPI('✅ Anticipo',  Fmt.currency(res.anticipo), 'var(--success-fg)')}
+        ${renderFinKPI('⏳ Saldo',     Fmt.currency(res.saldo), res.saldo > 0 ? 'var(--warning-fg)' : 'var(--text-primary)')}
+        ${renderFinKPI('📉 Gastos',    Fmt.currency(res.gastos), 'var(--danger-fg)')}
+        ${renderFinKPI('🤝 Comis.',    Fmt.currency(res.comisiones), 'var(--accent-violet)')}
+        ${renderFinKPI('📈 Utilidad',  Fmt.currency(res.utilidad), res.utilidad >= 0 ? 'var(--success-fg)' : 'var(--danger-fg)')}
+      </div>
+
+      <!-- Margen -->
+      <div style="margin-bottom:var(--space-5)">
+        <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">
+          <span>Margen de rentabilidad</span>
+          <span style="font-weight:700;color:${res.margen>=20?'var(--success-fg)':res.margen>=0?'var(--warning-fg)':'var(--danger-fg)'}">${res.margen}%</span>
+        </div>
+        <div class="progress-wrap" style="height:8px">
+          <div class="progress-bar ${res.margen>=20?'success':'warning'}" style="width:${Math.max(0,Math.min(100,res.margen))}%"></div>
+        </div>
+      </div>
+
+      <!-- Estado de pago -->
+      <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-5)">
+        <span style="font-size:var(--text-sm);color:var(--text-secondary)">Estado de pago:</span>
+        <span class="badge ${getEstadoPago(fin.estadoPago||'sin_pago').badge}">${getEstadoPago(fin.estadoPago||'sin_pago').label}</span>
+      </div>
+
+      <!-- Gastos -->
+      <div>
+        <div style="font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-3)">📋 Registro de Gastos</div>
+        <div id="gastos-list">${renderGastosHTML(fin.gastos||[])}</div>
+      </div>
+
+      <!-- Chart gastos -->
+      ${(fin.gastos||[]).length ? `
+      <div style="margin-top:var(--space-5);padding-top:var(--space-4);border-top:1px solid var(--border-subtle)">
+        <div style="font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-3)">📊 Gastos por Categoría</div>
+        <div class="chart-container" style="height:180px"><canvas id="chart-gastos"></canvas></div>
+      </div>` : ''}
+
+      <!-- Comisiones -->
+      ${(fin.comisiones||[]).length ? `
+      <div style="margin-top:var(--space-5);padding-top:var(--space-4);border-top:1px solid var(--border-subtle)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
+          <div style="font-size:var(--text-sm);font-weight:600">🤝 Comisiones</div>
+          ${canWrite ? `<button class="btn btn-ghost btn-sm" onclick="openAgregarComision()">+ Agregar</button>` : ''}
+        </div>
+        ${(fin.comisiones||[]).map(c => {
+          const u = getUserById(c.usuarioId);
+          return `
+            <div class="expense-row">
+              <div style="display:flex;align-items:center;gap:var(--space-2)">
+                <div class="avatar avatar-sm" style="background:${avatarColor(u?.nombre||'')}">
+                  ${Fmt.initials(u?.nombre||'?')}
+                </div>
+                <span style="font-size:var(--text-sm)">${escHtml(u?.nombre||'Desconocido')}</span>
+                ${c.porcentaje ? `<span style="font-size:var(--text-xs);color:var(--text-muted)">(${c.porcentaje}%)</span>` : ''}
+              </div>
+              <span style="font-weight:600;color:var(--accent-violet)">${Fmt.currency(c.monto)}</span>
+            </div>`;
+        }).join('')}
+      </div>` : `
+      ${canWrite ? `<div style="margin-top:var(--space-4);text-align:center">
+        <button class="btn btn-ghost btn-sm" onclick="openAgregarComision()">+ Agregar comisión al equipo</button>
+      </div>` : ''}`}
+    </div>
+  </div>`;
+}
+
+function renderFinKPI(label, val, color) {
+  return `<div style="background:var(--bg-overlay);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--space-3) var(--space-4)">
+    <div style="font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:4px">${label}</div>
+    <div style="font-family:var(--font-display);font-size:var(--text-base);font-weight:700;color:${color||'var(--text-primary)'}">${val}</div>
+  </div>`;
+}
+
+function renderGastosHTML(gastos) {
+  if (!gastos.length) return `<div style="text-align:center;padding:var(--space-6);color:var(--text-muted);font-size:var(--text-sm)">Sin gastos registrados</div>`;
+
+  // Resumen por estado
+  const aprobados   = gastos.filter(g=>g.estado==='aprobado').reduce((s,g)=>s+g.monto,0);
+  const pendientes  = gastos.filter(g=>g.estado==='pendiente').reduce((s,g)=>s+g.monto,0);
+  const rechazados  = gastos.filter(g=>g.estado==='rechazado').reduce((s,g)=>s+g.monto,0);
+
+  const resumen = `<div style="display:flex;gap:var(--space-4);flex-wrap:wrap;margin-bottom:var(--space-4);padding:var(--space-3);background:var(--bg-overlay);border-radius:var(--radius-md);font-size:var(--text-xs)">
+    <span>✅ Aprobados: <strong style="color:var(--success-fg)">${Fmt.currency(aprobados)}</strong></span>
+    <span>⏳ Pendientes: <strong style="color:var(--warning-fg)">${Fmt.currency(pendientes)}</strong></span>
+    <span>❌ Rechazados: <strong style="color:var(--danger-fg)">${Fmt.currency(rechazados)}</strong></span>
+  </div>`;
+
+  return resumen + gastos.map(g => {
+    const cat = getCat(g.categoria);
+    const estG = getEstadoGasto(g.estado || 'pendiente');
+    const mp   = g.metodoPago ? getMetodoPago(g.metodoPago) : null;
+    return `<div class="expense-row" style="flex-direction:column;align-items:stretch;gap:var(--space-2)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)">
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <div class="expense-category-dot ${cat.dot}"></div>
+          <div>
+            <div style="font-size:var(--text-sm);font-weight:600">${escHtml(g.descripcion)}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+              ${escHtml(cat.label)} · ${Fmt.date(g.fecha)}
+              ${g.proveedor ? `· 🏢 ${escHtml(g.proveedor)}` : ''}
+              ${g.numeroFactura ? `· 📄 <span style="font-family:var(--font-mono);color:var(--primary-400)">${escHtml(g.numeroFactura)}</span>` : ''}
+              ${mp ? `· ${mp.emoji} ${mp.label}` : ''}
+              ${g.comprobante ? `· <span style="font-family:var(--font-mono)">${escHtml(g.comprobante)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--space-2);flex-shrink:0">
+          <div style="text-align:right">
+            <div style="font-weight:700;font-family:var(--font-display);color:var(--danger-fg)">${Fmt.currency(g.monto||0)}</div>
+            ${g.impuesto ? `<div style="font-size:.65rem;color:var(--text-muted)">Subtotal: ${Fmt.currency(g.subtotal||0)} + IVA: ${Fmt.currency(g.impuesto)}</div>` : ''}
+          </div>
+          <span class="badge ${estG.badge}">${estG.emoji} ${estG.label}</span>
+        </div>
+      </div>
+      ${g.notas ? `<div style="font-size:var(--text-xs);color:var(--text-muted);font-style:italic;padding-left:var(--space-5)">${escHtml(g.notas)}</div>` : ''}
+      ${g.estado==='rechazado'&&g.motivoRechazo ? `<div style="font-size:var(--text-xs);color:var(--danger-fg);padding-left:var(--space-5)">Motivo: ${escHtml(g.motivoRechazo)}</div>` : ''}
+      <div style="display:flex;gap:var(--space-1);padding-left:var(--space-5)">
+        ${isAdmin && g.estado === 'pendiente' ? `
+          <button class="btn btn-success btn-sm" style="font-size:.65rem;padding:4px 8px" onclick="aprobarGasto('${g.id}')">✅ Aprobar</button>
+          <button class="btn btn-danger btn-sm" style="font-size:.65rem;padding:4px 8px" onclick="rechazarGasto('${g.id}')">❌ Rechazar</button>` : ''}
+        ${isAdmin && g.estado === 'aprobado' ? `
+          <button class="btn btn-ghost btn-sm" style="font-size:.65rem" onclick="rechazarGasto('${g.id}')" data-tooltip="Revertir aprobación">↩ Revertir</button>` : ''}
+        ${canWrite ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="eliminarGasto('${g.id}')" data-tooltip="Eliminar">🗑️</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function aprobarGasto(gastoId) {
+  try { Financiero.aprobarGasto(SOL.id, gastoId); Toast.success('Gasto aprobado ✅'); reload(); }
+  catch(e) { Toast.error(e.message); }
+}
+
+function rechazarGasto(gastoId) {
+  const motivo = prompt('Motivo del rechazo:') || '';
+  try { Financiero.rechazarGasto(SOL.id, gastoId, motivo); Toast.success('Gasto rechazado'); reload(); }
+  catch(e) { Toast.error(e.message); }
+}
+
+function renderGastosChart(gastos) {
+  const canvas = document.getElementById('chart-gastos');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const porCat = {};
+  CATEGORIAS_GASTO.forEach(c => { porCat[c.id] = 0; });
+  gastos.forEach(g => { if (porCat[g.categoria] !== undefined) porCat[g.categoria] += g.monto; });
+  const activas = CATEGORIAS_GASTO.filter(c => porCat[c.id] > 0);
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: activas.map(c => c.label), datasets: [{ data: activas.map(c => porCat[c.id]), backgroundColor: activas.map(c => c.color), borderWidth: 0, hoverOffset: 8 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: true, position: 'bottom', labels: { color: '#8b91a7', font: { size: 10 }, boxWidth: 10, padding: 6 } } } },
+  });
+}
+
+function getProgressPct(estado) {
+  return { pendiente:5, en_proceso:35, revision:65, aprobado:85, completado:100, cancelado:0 }[estado] ?? 0;
+}
+
+// ── Acciones Servicios ──────────────────────────────────────
+
+function cambiarSrvEstado(srvId, nuevoEstado) {
+  Servicios.cambiarEstado(SOL.id, srvId, nuevoEstado);
+  const est = getEstadoSrv(nuevoEstado);
+  Toast.success(`Servicio marcado como ${est.label}`);
+  reload();
+}
+
+function confirmarEliminarSrv(srvId) {
+  confirmDialog('¿Eliminar este servicio?', 'Eliminar Servicio').then(ok => {
+    if (!ok) return;
+    Servicios.eliminar(SOL.id, srvId);
+    Toast.success('Servicio eliminado');
+    reload();
+  });
+}
+
+function openAgregarServicio() {
+  const users = Store.get('users') || [];
+  const areas = Array.isArray(SOL.areas) ? SOL.areas : [SOL.area].filter(Boolean);
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">📦 Agregar Servicio</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Área del Servicio <span class="required">*</span></label>
+            <select class="form-control" id="srv-area">
+              ${areas.map(aId => { const a=getArea(aId); return `<option value="${aId}">${a.emoji} ${a.nombre}</option>`; }).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nombre del Servicio <span class="required">*</span></label>
+            <input class="form-control" id="srv-nombre" placeholder="Ej: Chip timing para corredores" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción</label>
+          <textarea class="form-control" id="srv-desc" rows="2" placeholder="Detalles del servicio..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Cantidad <span class="required">*</span></label>
+            <input class="form-control" type="number" id="srv-cant" placeholder="0" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Unidad</label>
+            <select class="form-control" id="srv-unidad">
+              ${UNIDADES.map(u => `<option value="${u}">${u}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        ${isAdmin ? `
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">💰 Precio Unitario</label>
+            <input class="form-control" type="number" id="srv-precio-u" placeholder="0" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">💵 Precio Total</label>
+            <input class="form-control" type="number" id="srv-precio-t" placeholder="Auto-calculado" min="0" />
+          </div>
+        </div>` : ''}
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">📅 Fecha de Entrega</label>
+            <input class="form-control" type="date" id="srv-fecha" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Responsable</label>
+            <select class="form-control" id="srv-resp">
+              <option value="">Sin asignar</option>
+              ${users.filter(u=>u.activo).map(u => `<option value="${u.id}">${u.nombre}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas</label>
+          <input class="form-control" id="srv-notas" placeholder="Notas adicionales..." />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-srv">Agregar Servicio</button>
+    </div>
+  `, { size: 'lg' });
+
+  // Auto-calcular total
+  const cantEl   = modal.querySelector('#srv-cant');
+  const precUEl  = modal.querySelector('#srv-precio-u');
+  const precTEl  = modal.querySelector('#srv-precio-t');
+  if (cantEl && precUEl && precTEl) {
+    const recalc = () => { const v = parseFloat(cantEl.value)||0; const p = parseFloat(precUEl.value)||0; if (v&&p) precTEl.value = v*p; };
+    cantEl.addEventListener('input', recalc);
+    precUEl.addEventListener('input', recalc);
+  }
+
+  modal.querySelector('#btn-guardar-srv').addEventListener('click', () => {
+    const nombre = modal.querySelector('#srv-nombre').value.trim();
+    const cant   = parseFloat(modal.querySelector('#srv-cant').value);
+    if (!nombre || !cant) { Toast.warning('Nombre y cantidad son obligatorios'); return; }
+    try {
+      Servicios.agregar(SOL.id, {
+        area:          modal.querySelector('#srv-area').value,
+        nombre,
+        descripcion:   modal.querySelector('#srv-desc').value.trim(),
+        cantidad:      cant,
+        unidad:        modal.querySelector('#srv-unidad').value,
+        precioUnitario: modal.querySelector('#srv-precio-u')?.value || 0,
+        precioTotal:   modal.querySelector('#srv-precio-t')?.value || 0,
+        fechaEntrega:  modal.querySelector('#srv-fecha').value,
+        responsable:   modal.querySelector('#srv-resp').value || '',
+        notas:         modal.querySelector('#srv-notas').value.trim(),
+      });
+      close();
+      Toast.success('Servicio agregado');
+      reload();
+    } catch(e) { Toast.error(e.message); }
+  });
+}
+
+function openEditarServicio(srvId) {
+  const srv = (SOL.servicios||[]).find(s => s.id === srvId);
+  if (!srv) return;
+  const users = Store.get('users') || [];
+  const areas = Array.isArray(SOL.areas) ? SOL.areas : [SOL.area].filter(Boolean);
+
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">✏️ Editar Servicio</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Área</label>
+            <select class="form-control" id="esrv-area">
+              ${areas.map(aId => { const a=getArea(aId); return `<option value="${aId}" ${srv.area===aId?'selected':''}>${a.emoji} ${a.nombre}</option>`; }).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nombre <span class="required">*</span></label>
+            <input class="form-control" id="esrv-nombre" value="${escHtml(srv.nombre)}" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción</label>
+          <textarea class="form-control" id="esrv-desc" rows="2">${escHtml(srv.descripcion||'')}</textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Cantidad <span class="required">*</span></label>
+            <input class="form-control" type="number" id="esrv-cant" value="${srv.cantidad}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Unidad</label>
+            <select class="form-control" id="esrv-unidad">
+              ${UNIDADES.map(u => `<option value="${u}" ${srv.unidad===u?'selected':''}>${u}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        ${isAdmin ? `
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">💰 Precio Unitario</label>
+            <input class="form-control" type="number" id="esrv-pu" value="${srv.precioUnitario||0}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">💵 Precio Total</label>
+            <input class="form-control" type="number" id="esrv-pt" value="${srv.precioTotal||0}" />
+          </div>
+        </div>` : ''}
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">📅 Fecha Entrega</label>
+            <input class="form-control" type="date" id="esrv-fecha" value="${srv.fechaEntrega||''}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Responsable</label>
+            <select class="form-control" id="esrv-resp">
+              <option value="">Sin asignar</option>
+              ${users.filter(u=>u.activo).map(u => `<option value="${u.id}" ${srv.responsable===u.id?'selected':''}>${u.nombre}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Estado</label>
+          <select class="form-control" id="esrv-estado">
+            ${ESTADOS_SERVICIO.map(e => `<option value="${e.id}" ${srv.estado===e.id?'selected':''}>${e.emoji} ${e.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas</label>
+          <input class="form-control" id="esrv-notas" value="${escHtml(srv.notas||'')}" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-upd-srv">Guardar Cambios</button>
+    </div>
+  `, { size: 'lg' });
+
+  modal.querySelector('#btn-upd-srv').addEventListener('click', () => {
+    const nombre = modal.querySelector('#esrv-nombre').value.trim();
+    const cant   = parseFloat(modal.querySelector('#esrv-cant').value);
+    if (!nombre || !cant) { Toast.warning('Nombre y cantidad son requeridos'); return; }
+    Servicios.actualizar(SOL.id, srvId, {
+      area:          modal.querySelector('#esrv-area').value,
+      nombre, descripcion: modal.querySelector('#esrv-desc').value.trim(),
+      cantidad:      cant, unidad: modal.querySelector('#esrv-unidad').value,
+      precioUnitario: parseFloat(modal.querySelector('#esrv-pu')?.value||0),
+      precioTotal:    parseFloat(modal.querySelector('#esrv-pt')?.value||0),
+      fechaEntrega:  modal.querySelector('#esrv-fecha').value,
+      responsable:   modal.querySelector('#esrv-resp').value || '',
+      estado:        modal.querySelector('#esrv-estado').value,
+      notas:         modal.querySelector('#esrv-notas').value.trim(),
+    });
+    close(); Toast.success('Servicio actualizado'); reload();
+  });
+}
+
+// ── Acciones Estado ─────────────────────────────────────────
+
+function cambiarEstadoRapido(nuevoEstado) {
+  const est = getEstado(nuevoEstado);
+  confirmDialog(`¿Cambiar el estado a "${est.label}"?`, 'Confirmar').then(ok => {
+    if (!ok) return;
+    try { Solicitudes.cambiarEstado(SOL.id, nuevoEstado); Toast.success(`Estado → ${est.label}`); reload(); }
+    catch(e) { Toast.error(e.message); }
+  });
+}
+
+function openCambiarEstado() {
+  const transiciones = {
+    pendiente:['en_proceso','cancelado'], en_proceso:['revision','cancelado','pendiente'],
+    revision:['aprobado','en_proceso','cancelado'], aprobado:['completado','en_proceso','cancelado'],
+    completado:[], cancelado:['pendiente'],
+  };
+  const opciones = transiciones[SOL.estado] || [];
+  if (!opciones.length) { Toast.info('Sin transiciones disponibles'); return; }
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">🔄 Cambiar Estado</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Nuevo Estado</label>
+        <select class="form-control" id="ns-estado">
+          <option value="">Seleccionar...</option>
+          ${opciones.map(e => { const es=getEstado(e); return `<option value="${e}">${es.emoji} ${es.label}</option>`; }).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="margin-top:var(--space-3)">
+        <label class="form-label">Observación</label>
+        <textarea class="form-control" id="ns-nota" rows="2" placeholder="Nota opcional..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-estado">Guardar</button>
+    </div>
+  `);
+  modal.querySelector('#btn-guardar-estado').addEventListener('click', () => {
+    const ns = modal.querySelector('#ns-estado').value;
+    const nota = modal.querySelector('#ns-nota').value.trim();
+    if (!ns) { Toast.warning('Selecciona un estado'); return; }
+    try { Solicitudes.cambiarEstado(SOL.id, ns, nota); close(); Toast.success('Estado actualizado'); reload(); }
+    catch(e) { Toast.error(e.message); }
+  });
+}
+
+// ── Acciones Financiero ─────────────────────────────────────
+
+function openAgregarGasto() {
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">💸 Registrar Gasto</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Categoría <span class="required">*</span></label>
+            <select class="form-control" id="g-cat">
+              <option value="">Seleccionar...</option>
+              ${CATEGORIAS_GASTO.map(c => `<option value="${c.id}">${c.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha <span class="required">*</span></label>
+            <input class="form-control" type="date" id="g-fecha" value="${new Date().toISOString().split('T')[0]}" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción del Gasto <span class="required">*</span></label>
+          <input class="form-control" id="g-desc" placeholder="Ej: Compra de chips para cronometraje" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">🏢 Proveedor</label>
+            <input class="form-control" id="g-proveedor" placeholder="Nombre del proveedor" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">📄 Nº de Factura</label>
+            <input class="form-control" id="g-factura" placeholder="FAC-0001" style="font-family:var(--font-mono)" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">💳 Método de Pago</label>
+            <select class="form-control" id="g-metodo">
+              ${METODOS_PAGO.map(m => `<option value="${m.id}">${m.emoji} ${m.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">🔢 Nº Comprobante / Transacción</label>
+            <input class="form-control" id="g-comprobante" placeholder="TXN-123456" style="font-family:var(--font-mono)" />
+          </div>
+        </div>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label class="form-label">💵 Subtotal <span class="required">*</span></label>
+            <input class="form-control" type="number" id="g-subtotal" placeholder="0" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">🧾 Impuesto / IVA</label>
+            <input class="form-control" type="number" id="g-impuesto" placeholder="0" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color:var(--primary-300)">💰 Total</label>
+            <input class="form-control" type="number" id="g-total" placeholder="Auto" readonly style="background:var(--bg-surface);color:var(--primary-300);font-weight:700" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas adicionales</label>
+          <input class="form-control" id="g-notas" placeholder="Observaciones del gasto..." />
+        </div>
+        <div style="background:var(--info-bg);border:1px solid rgba(0,212,255,.2);border-radius:var(--radius-md);padding:var(--space-3);font-size:var(--text-xs);color:var(--info-fg)">
+          💡 El gasto quedará en estado <strong>Pendiente</strong> hasta que un administrador lo apruebe. Los gastos rechazados no se incluyen en el resumen financiero.
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-gasto">💾 Registrar Gasto</button>
+    </div>
+  `, { size: 'lg' });
+
+  // Auto-calcular total
+  const subEl = modal.querySelector('#g-subtotal');
+  const impEl = modal.querySelector('#g-impuesto');
+  const totEl = modal.querySelector('#g-total');
+  const recalc = () => { totEl.value = ((parseFloat(subEl.value)||0) + (parseFloat(impEl.value)||0)).toFixed(0); };
+  subEl.addEventListener('input', recalc);
+  impEl.addEventListener('input', recalc);
+
+  modal.querySelector('#btn-guardar-gasto').addEventListener('click', () => {
+    const cat  = modal.querySelector('#g-cat').value;
+    const desc = modal.querySelector('#g-desc').value.trim();
+    const subtotal = parseFloat(modal.querySelector('#g-subtotal').value);
+    const fecha = modal.querySelector('#g-fecha').value;
+    if (!cat || !desc || !subtotal) { Toast.warning('Categoría, descripción y subtotal son obligatorios'); return; }
+    try {
+      Financiero.agregarGasto(SOL.id, {
+        categoria:     cat,
+        descripcion:   desc,
+        fecha,
+        proveedor:     modal.querySelector('#g-proveedor').value.trim(),
+        numeroFactura: modal.querySelector('#g-factura').value.trim(),
+        metodoPago:    modal.querySelector('#g-metodo').value,
+        comprobante:   modal.querySelector('#g-comprobante').value.trim(),
+        monto:         subtotal,
+        impuesto:      parseFloat(modal.querySelector('#g-impuesto').value)||0,
+        notas:         modal.querySelector('#g-notas').value.trim(),
+      });
+      close();
+      Toast.success('Gasto registrado — pendiente de aprobación');
+      reload();
+    } catch(e) { Toast.error(e.message); }
+  });
+}
+
+function eliminarGasto(gastoId) {
+  confirmDialog('¿Eliminar este gasto?', 'Eliminar').then(ok => {
+    if (!ok) return;
+    Financiero.eliminarGasto(SOL.id, gastoId);
+    Toast.success('Gasto eliminado'); reload();
+  });
+}
+
+function openEditarFinanciero() {
+  const fin = SOL.financiero || {};
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">💰 Editar Financiero</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-group"><label class="form-label">💵 Valor Cotizado</label>
+          <input class="form-control" type="number" id="ef-valor" value="${fin.valorCotizado||0}" min="0" />
+        </div>
+        <div class="form-group"><label class="form-label">✅ Anticipo Recibido</label>
+          <input class="form-control" type="number" id="ef-anticipo" value="${fin.anticipo||0}" min="0" />
+        </div>
+        <div class="form-group"><label class="form-label">📊 Estado de Pago</label>
+          <select class="form-control" id="ef-ep">
+            ${ESTADOS_PAGO.map(e => `<option value="${e.id}" ${fin.estadoPago===e.id?'selected':''}>${e.label}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-fin">Guardar</button>
+    </div>
+  `);
+  modal.querySelector('#btn-guardar-fin').addEventListener('click', () => {
+    const datos = { valorCotizado: modal.querySelector('#ef-valor').value, anticipo: modal.querySelector('#ef-anticipo').value, estadoPago: modal.querySelector('#ef-ep').value };
+    try { Financiero.actualizarFinanciero(SOL.id, datos); close(); Toast.success('Información financiera actualizada'); reload(); }
+    catch(e) { Toast.error(e.message); }
+  });
+}
+
+function openAgregarComision() {
+  const users = Store.get('users') || [];
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">🤝 Agregar Comisión</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-group">
+          <label class="form-label">Persona <span class="required">*</span></label>
+          <select class="form-control" id="com-user">
+            <option value="">Seleccionar...</option>
+            ${users.filter(u=>u.activo).map(u => `<option value="${u.id}">${u.nombre}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Porcentaje (%)</label>
+            <input class="form-control" type="number" id="com-pct" placeholder="0" min="0" max="100" />
+          </div>
+          <div class="form-group"><label class="form-label">O Monto Fijo</label>
+            <input class="form-control" type="number" id="com-monto" placeholder="0" min="0" />
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Concepto</label>
+          <input class="form-control" id="com-concepto" value="Comisión" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-com">Agregar</button>
+    </div>
+  `);
+  modal.querySelector('#btn-guardar-com').addEventListener('click', () => {
+    const uid = modal.querySelector('#com-user').value;
+    const pct  = parseFloat(modal.querySelector('#com-pct').value);
+    const monto = parseFloat(modal.querySelector('#com-monto').value);
+    const concepto = modal.querySelector('#com-concepto').value.trim();
+    if (!uid || (!pct && !monto)) { Toast.warning('Selecciona persona y porcentaje o monto'); return; }
+    try { Financiero.agregarComision(SOL.id, { usuarioId:uid, porcentaje:pct||0, monto:monto||null, concepto }); close(); Toast.success('Comisión agregada'); reload(); }
+    catch(e) { Toast.error(e.message); }
+  });
+}
+
+function openEditarModal() {
+  const areas = getAreas().filter(a=>a.activo);
+  const solAreas = Array.isArray(SOL.areas) ? SOL.areas : [SOL.area].filter(Boolean);
+  const users = Store.get('users') || [];
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">✏️ Editar Solicitud</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Título <span class="required">*</span></label>
+            <input class="form-control" id="edit-titulo" value="${escHtml(SOL.titulo)}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cliente</label>
+            <input class="form-control" id="edit-cliente" value="${escHtml(SOL.cliente)}" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Áreas Responsables</label>
+          <div class="areas-selector">
+            ${areas.map(a => `<div class="area-chip ${solAreas.includes(a.id)?'selected':''}" data-area="${a.id}" onclick="this.classList.toggle('selected')">${a.emoji} ${a.nombre}</div>`).join('')}
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Prioridad</label>
+            <select class="form-control" id="edit-prio">
+              ${PRIORIDADES.map(p => `<option value="${p.id}" ${SOL.prioridad===p.id?'selected':''}>${p.emoji} ${p.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha Evento</label>
+            <input class="form-control" type="date" id="edit-fecha" value="${SOL.fechaEvento||''}" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Asignado a</label>
+            <select class="form-control" id="edit-asig">
+              <option value="">Sin asignar</option>
+              ${users.filter(u=>u.activo).map(u=>`<option value="${u.id}" ${SOL.asignadoA===u.id?'selected':''}>${u.nombre}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contacto</label>
+            <input class="form-control" id="edit-contacto" value="${escHtml(SOL.contacto||'')}" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción</label>
+          <textarea class="form-control" id="edit-desc" rows="3">${escHtml(SOL.descripcion||'')}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas Internas</label>
+          <textarea class="form-control" id="edit-notas" rows="2">${escHtml(SOL.notas||'')}</textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-edit">Guardar Cambios</button>
+    </div>
+  `, { size: 'lg' });
+
+  modal.querySelector('#btn-guardar-edit').addEventListener('click', () => {
+    const titulo = modal.querySelector('#edit-titulo').value.trim();
+    const newAreas = [...modal.querySelectorAll('.area-chip.selected')].map(c => c.dataset.area);
+    if (!titulo) { Toast.warning('El título es obligatorio'); return; }
+    if (!newAreas.length) { Toast.warning('Selecciona al menos un área'); return; }
+    try {
+      Solicitudes.update(SOL.id, {
+        titulo, areas: newAreas,
+        cliente:     modal.querySelector('#edit-cliente').value.trim(),
+        prioridad:   modal.querySelector('#edit-prio').value,
+        fechaEvento: modal.querySelector('#edit-fecha').value,
+        asignadoA:   modal.querySelector('#edit-asig').value || null,
+        contacto:    modal.querySelector('#edit-contacto').value.trim(),
+        descripcion: modal.querySelector('#edit-desc').value.trim(),
+        notas:       modal.querySelector('#edit-notas').value.trim(),
+      });
+      close(); Toast.success('Cambios guardados'); reload();
+    } catch(e) { Toast.error(e.message); }
+  });
+}
+
+function openCierreEvento() {
+  const cierre = SOL.cierreEvento;
+  const res = Financiero.calcularResumen(SOL);
+  const gastosPend = (SOL.financiero?.gastos||[]).filter(g => g.estado === 'pendiente').length;
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">🔒 Cierre de Evento</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        ${cierre ? `<div style="background:var(--success-bg);border:1px solid rgba(16,185,129,.3);border-radius:var(--radius-md);padding:var(--space-3)">
+          <div style="font-size:var(--text-sm);color:var(--success-fg);font-weight:600">✅ Ya existe un cierre — ${escHtml(cierre.numeroReferencia)}</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">Generado: ${Fmt.date(cierre.creadoEn)} · v${cierre.version}</div>
+        </div>` : ''}
+
+        ${gastosPend > 0 ? `<div style="background:var(--warning-bg);border:1px solid rgba(245,158,11,.3);border-radius:var(--radius-md);padding:var(--space-3)">
+          <div style="font-size:var(--text-sm);color:var(--warning-fg);font-weight:600">⚠️ ${gastosPend} gasto${gastosPend>1?'s':''} pendiente${gastosPend>1?'s':''} de aprobación</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">El reporte incluirá todos los gastos. Se recomienda aprobar/rechazar antes de cerrar.</div>
+        </div>` : ''}
+
+        <div style="background:var(--bg-overlay);border:1px solid var(--border-default);border-radius:var(--radius-lg);padding:var(--space-4)">
+          <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:var(--space-3)">Resumen del Evento</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+            <div><div style="font-size:var(--text-xs);color:var(--text-muted)">Valor Cotizado</div><div style="font-weight:700;font-family:var(--font-display)">${Fmt.currency(res.valorCotizado)}</div></div>
+            <div><div style="font-size:var(--text-xs);color:var(--text-muted)">Anticipo Recibido</div><div style="font-weight:700;color:var(--success-fg);font-family:var(--font-display)">${Fmt.currency(res.anticipo)}</div></div>
+            <div><div style="font-size:var(--text-xs);color:var(--text-muted)">Total Gastos</div><div style="font-weight:700;color:var(--danger-fg);font-family:var(--font-display)">${Fmt.currency(res.gastos)}</div></div>
+            <div><div style="font-size:var(--text-xs);color:var(--text-muted)">Utilidad Neta</div><div style="font-weight:700;color:${res.utilidad>=0?'var(--success-fg)':'var(--danger-fg)'};font-family:var(--font-display)">${Fmt.currency(res.utilidad)}</div></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nº de Referencia del Cierre</label>
+          <input class="form-control" id="cie-ref" value="CIE-${SOL.ticketId}" style="font-family:var(--font-mono)" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Observaciones para Contabilidad</label>
+          <textarea class="form-control" id="cie-notas" rows="3" placeholder="Notas importantes para el área contable...">${escHtml(cierre?.notasContabilidad||'')}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Observaciones Generales</label>
+          <textarea class="form-control" id="cie-obs" rows="2" placeholder="Observaciones del coordinador...">${escHtml(cierre?.observaciones||'')}</textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      ${cierre ? `<button class="btn btn-secondary" onclick="window.open('reporte-evento.html?id=${SOL.id}','_blank')">👁️ Ver Reporte</button>` : ''}
+      <button class="btn btn-warning" id="btn-generar-cierre">${cierre ? '🔄 Regenerar Cierre' : '🔒 Generar Cierre'}</button>
+    </div>
+  `, { size: 'lg' });
+
+  modal.querySelector('#btn-generar-cierre').addEventListener('click', () => {
+    try {
+      const ref  = modal.querySelector('#cie-ref').value.trim();
+      const notas = modal.querySelector('#cie-notas').value.trim();
+      const obs   = modal.querySelector('#cie-obs').value.trim();
+      CierreEvento.crear(SOL.id, { numeroReferencia: ref, notasContabilidad: notas, observaciones: obs });
+      close();
+      Toast.success('🔒 Cierre generado exitosamente');
+      setTimeout(() => { window.open(`reporte-evento.html?id=${SOL.id}`, '_blank'); }, 300);
+      reload();
+    } catch(e) { Toast.error(e.message); }
+  });
+}
+</script>
+</body>
+</html>

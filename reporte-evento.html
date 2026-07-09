@@ -1,0 +1,381 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Reporte de Cierre — Gestión Deportiva</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+  <style>
+    /* ── Print Styles ── */
+    @media print {
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { background: white !important; color: #1a1a2e !important; font-family: 'Arial', sans-serif; }
+      .no-print { display: none !important; }
+      .app-shell, .main-content { display: block; margin: 0; }
+      .page-content { padding: 0; }
+      .report-page { box-shadow: none !important; border: none !important; background: white !important; padding: 20px !important; }
+      .report-header { background: #1a1a2e !important; color: white !important; -webkit-print-color-adjust: exact; }
+      .print-table { border-collapse: collapse; width: 100%; }
+      .print-table th { background: #f0f4ff !important; color: #1a1a2e !important; border: 1px solid #ccc; padding: 8px; font-size: 11px; }
+      .print-table td { border: 1px solid #ddd; padding: 6px 8px; font-size: 11px; color: #222; }
+      .print-table tr:nth-child(even) td { background: #f9f9f9 !important; }
+      .status-aprobado { color: #10b981 !important; font-weight: 700; }
+      .status-pendiente { color: #f59e0b !important; }
+      .status-rechazado { color: #ef4444 !important; text-decoration: line-through; }
+      .firma-box { border-top: 2px solid #333 !important; }
+      .section-title { border-bottom: 2px solid #5865f2 !important; color: #1a1a2e !important; }
+      .fin-card { border: 1px solid #ddd !important; background: #f8f8f8 !important; }
+      .fin-val { color: #1a1a2e !important; }
+      @page { size: A4; margin: 15mm; }
+    }
+
+    /* ── Screen Styles ── */
+    .report-page { max-width: 960px; margin: 0 auto; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-lg); }
+    .report-header { background: linear-gradient(135deg,#1e2130 0%,#2a2d4a 100%); padding: 32px 40px; border-bottom: 3px solid var(--primary-500); display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
+    .report-logo { display: flex; align-items: center; gap: 12px; }
+    .report-logo-icon { width: 48px; height: 48px; background: var(--gradient-primary); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+    .report-logo-text h1 { font-size: 1.2rem; color: white; margin: 0; }
+    .report-logo-text p { font-size: 0.75rem; color: rgba(255,255,255,.6); margin: 0; }
+    .report-meta { text-align: right; }
+    .report-ref { font-family: var(--font-mono); font-size: 1.1rem; font-weight: 700; color: var(--primary-300); }
+    .report-date { font-size: 0.75rem; color: rgba(255,255,255,.6); margin-top: 4px; }
+    .report-body { padding: 32px 40px; display: flex; flex-direction: column; gap: 32px; }
+    .section-title { font-family: var(--font-display); font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--primary-300); border-bottom: 2px solid rgba(88,101,242,.3); padding-bottom: 8px; margin-bottom: 16px; }
+    .info-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+    .info-pair label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); display: block; margin-bottom: 4px; }
+    .info-pair span  { font-size: 0.875rem; color: var(--text-primary); font-weight: 500; }
+    .print-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .print-table thead th { background: var(--bg-overlay); color: var(--text-secondary); font-weight: 700; font-size: 0.7rem; text-transform: uppercase; letter-spacing: .06em; padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border-subtle); white-space: nowrap; }
+    .print-table tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border-subtle); color: var(--text-primary); vertical-align: middle; }
+    .print-table tfoot td { padding: 10px 12px; font-weight: 700; font-size: 0.875rem; border-top: 2px solid var(--border-default); }
+    .print-table .text-right { text-align: right; }
+    .print-table .text-center { text-align: center; }
+    .status-aprobado { color: var(--success-fg); font-weight: 600; }
+    .status-pendiente { color: var(--accent-amber); }
+    .status-rechazado { color: var(--danger-fg); text-decoration: line-through; opacity: .7; }
+    .fin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+    .fin-card { background: var(--bg-overlay); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 14px 16px; }
+    .fin-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 6px; }
+    .fin-val { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; }
+    .firmas-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin-top: 16px; }
+    .firma-box { padding-top: 48px; border-top: 2px solid var(--border-default); text-align: center; }
+    .firma-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; }
+    .firma-name  { font-size: 0.875rem; color: var(--text-primary); font-weight: 700; }
+    .cierre-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
+    .float-actions { position: fixed; bottom: 24px; right: 24px; display: flex; gap: 10px; z-index: 100; }
+    @media (max-width: 768px) {
+      .report-header { padding: 20px; }
+      .report-body { padding: 20px; }
+      .firmas-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div id="app-loader"><div class="loader-logo">🏆 Gestión Deportiva</div><div class="loader-bar"><div class="loader-bar-fill"></div></div></div>
+<div id="toast-container"></div>
+
+<!-- Acciones flotantes (solo pantalla) -->
+<div class="float-actions no-print" id="float-actions" style="display:none">
+  <button class="btn btn-secondary" onclick="window.history.back()">← Volver</button>
+  <button class="btn btn-secondary" onclick="window.print()">🖨️ Imprimir / PDF</button>
+  <button class="btn btn-primary" id="btn-aprobar-cierre" style="display:none" onclick="aprobarCierre()">✅ Aprobar Cierre</button>
+</div>
+
+<div id="report-container" style="min-height:100vh;background:var(--bg-base);padding:var(--space-6) var(--space-4)"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/email.js"></script>
+<script src="js/solicitudes.js"></script>
+<script src="js/shared.js"></script>
+<script>
+let SOL_REPORT = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!Auth.requireAuth()) return;
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id');
+  if (!id) { window.location.href = 'solicitudes.html'; return; }
+
+  SOL_REPORT = Solicitudes.getById(id);
+  if (!SOL_REPORT) { document.getElementById('report-container').innerHTML = '<div class="empty-state"><div class="empty-state-title">Solicitud no encontrada</div></div>'; setTimeout(hideLoader, 300); return; }
+
+  renderReport();
+  setTimeout(hideLoader, 300);
+  document.getElementById('float-actions').style.display = 'flex';
+
+  const user = Auth.getCurrentUser();
+  const isAdmin = canSeeFinancials();
+  const cierre = SOL_REPORT.cierreEvento;
+  if (isAdmin && cierre && !cierre.aprobadoContabilidad) {
+    document.getElementById('btn-aprobar-cierre').style.display = 'inline-flex';
+  }
+});
+
+function renderReport() {
+  const sol = SOL_REPORT;
+  const cierre = sol.cierreEvento;
+  const snap = cierre?.snapshot || {};
+  const res = Financiero.calcularResumen(sol);
+  const user = Auth.getCurrentUser();
+  const creador = getUserById(sol.creadoPor);
+  const asig = getUserById(sol.asignadoA);
+  const areas = Array.isArray(sol.areas) ? sol.areas : [sol.area].filter(Boolean);
+  const gastos = (sol.financiero?.gastos || []);
+  const comisiones = (sol.financiero?.comisiones || []);
+  const servicios = (sol.servicios || []);
+  const refNum = cierre?.numeroReferencia || `RPT-${sol.ticketId}`;
+  const isAdmin = canSeeFinancials();
+
+  const estadoCierre = cierre ? (
+    cierre.aprobadoContabilidad ? { label: '✅ Aprobado por Contabilidad', cls: 'badge-completed', color: 'var(--success-fg)' } :
+    cierre.estado === 'con_pendientes' ? { label: '⚠️ Gastos Pendientes de Aprobación', cls: 'badge-warning', color: 'var(--warning-fg)' } :
+    { label: '📋 Listo para Revisión', cls: 'badge-progress', color: 'var(--primary-300)' }
+  ) : { label: '⏳ Sin Cierre Generado', cls: 'badge-pending', color: 'var(--text-muted)' };
+
+  const gastosAprobados   = gastos.filter(g => g.estado === 'aprobado');
+  const gastosPendientes  = gastos.filter(g => g.estado === 'pendiente');
+  const gastosRechazados  = gastos.filter(g => g.estado === 'rechazado');
+
+  const totalAprobados    = gastosAprobados.reduce((s,g) => s+(g.monto||0),0);
+  const totalPendientes   = gastosPendientes.reduce((s,g) => s+(g.monto||0),0);
+  const totalRechazados   = gastosRechazados.reduce((s,g) => s+(g.monto||0),0);
+  const totalServicios    = servicios.reduce((s,sv) => s+(sv.precioTotal||0),0);
+  const totalComisiones   = comisiones.reduce((s,c) => s+(c.monto||0),0);
+
+  document.getElementById('report-container').innerHTML = `
+  <div class="report-page">
+
+    <!-- Header -->
+    <div class="report-header">
+      <div class="report-logo">
+        <div class="report-logo-icon">🏆</div>
+        <div class="report-logo-text">
+          <h1>${EMPRESA_CONFIG.nombre}</h1>
+          <p>Servicios Deportivos — Reporte de Cierre de Evento</p>
+        </div>
+      </div>
+      <div class="report-meta">
+        <div class="report-ref">${escHtml(refNum)}</div>
+        <div class="report-date">Generado: ${new Date().toLocaleDateString('es-CO', { day:'2-digit', month:'long', year:'numeric' })}</div>
+        <div style="margin-top:8px">
+          <span class="badge ${estadoCierre.cls}" style="font-size:0.75rem">${estadoCierre.label}</span>
+        </div>
+        ${cierre?.aprobadoContabilidad ? `
+        <div style="margin-top:6px;font-size:0.7rem;color:rgba(255,255,255,.5)">
+          Aprobado: ${Fmt.date(cierre.aprobadoEn)} por ${escHtml(getUserById(cierre.aprobadoPor)?.nombre||'Admin')}
+        </div>` : ''}
+      </div>
+    </div>
+
+    <div class="report-body">
+
+      <!-- 1. Datos del Evento -->
+      <div>
+        <div class="section-title">1. Datos del Evento</div>
+        <div class="info-row">
+          <div class="info-pair"><label>Ticket</label><span style="font-family:var(--font-mono);color:var(--primary-400)">${escHtml(sol.ticketId)}</span></div>
+          <div class="info-pair"><label>Proyecto</label><span>${escHtml(sol.titulo)}</span></div>
+          <div class="info-pair"><label>Cliente</label><span>${escHtml(sol.cliente)}</span></div>
+          <div class="info-pair"><label>Fecha del Evento</label><span>${sol.fechaEvento ? Fmt.date(sol.fechaEvento) : '—'}</span></div>
+          <div class="info-pair"><label>Responsable</label><span>${escHtml(asig?.nombre||'Sin asignar')}</span></div>
+          <div class="info-pair"><label>Estado Final</label><span><span class="badge ${getEstado(sol.estado).badge}">${getEstado(sol.estado).label}</span></span></div>
+          <div class="info-pair"><label>Áreas</label><span>${areas.map(aId=>{const a=getArea(aId);return a.emoji+' '+a.nombre;}).join(', ')}</span></div>
+          <div class="info-pair"><label>Contacto</label><span>${escHtml(sol.contacto||'—')}</span></div>
+        </div>
+      </div>
+
+      <!-- 2. Servicios Contratados -->
+      <div>
+        <div class="section-title">2. Servicios Contratados</div>
+        ${servicios.length ? `
+        <table class="print-table">
+          <thead><tr>
+            <th>Servicio</th><th>Área</th><th class="text-center">Cantidad</th><th>Unidad</th>
+            ${isAdmin ? '<th class="text-right">P. Unitario</th><th class="text-right">Total</th>' : ''}
+            <th class="text-center">Estado</th><th>Entrega</th>
+          </tr></thead>
+          <tbody>
+          ${servicios.map(s => {
+            const a = getArea(s.area);
+            const es = getEstadoSrv(s.estado);
+            return `<tr>
+              <td><div style="font-weight:600">${escHtml(s.nombre)}</div>${s.descripcion?`<div style="font-size:.7rem;color:var(--text-muted)">${escHtml(s.descripcion)}</div>`:''}</td>
+              <td><span class="badge badge-area" style="font-size:.65rem">${a.emoji} ${a.nombre}</span></td>
+              <td class="text-center" style="font-weight:700">${s.cantidad}</td>
+              <td>${escHtml(s.unidad)}</td>
+              ${isAdmin ? `<td class="text-right">${Fmt.currency(s.precioUnitario||0)}</td><td class="text-right money" style="font-weight:700">${Fmt.currency(s.precioTotal||0)}</td>` : ''}
+              <td class="text-center"><span class="badge ${es.badge}" style="font-size:.65rem">${es.emoji} ${es.label}</span></td>
+              <td style="font-size:.75rem">${s.fechaEntrega?Fmt.date(s.fechaEntrega):'—'}</td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+          ${isAdmin ? `<tfoot><tr>
+            <td colspan="5">TOTAL SERVICIOS</td>
+            <td class="text-right money" style="color:var(--primary-300)">${Fmt.currency(totalServicios)}</td>
+            <td colspan="2"></td>
+          </tr></tfoot>` : ''}
+        </table>` : '<p style="color:var(--text-muted);font-size:.875rem">Sin servicios registrados.</p>'}
+      </div>
+
+      <!-- 3. Gastos del Evento (solo admin) -->
+      ${isAdmin ? `
+      <div>
+        <div class="section-title">3. Registro de Gastos</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:.8rem">
+          <span>✅ Aprobados: <strong style="color:var(--success-fg)">${Fmt.currency(totalAprobados)}</strong> (${gastosAprobados.length})</span>
+          <span>⏳ Pendientes: <strong style="color:var(--warning-fg)">${Fmt.currency(totalPendientes)}</strong> (${gastosPendientes.length})</span>
+          <span>❌ Rechazados: <strong style="color:var(--danger-fg)">${Fmt.currency(totalRechazados)}</strong> (${gastosRechazados.length})</span>
+        </div>
+        ${gastos.length ? `
+        <table class="print-table">
+          <thead><tr>
+            <th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Proveedor</th>
+            <th>Nº Factura</th><th>Método Pago</th><th>Comprobante</th>
+            <th class="text-right">Subtotal</th><th class="text-right">Impuesto</th>
+            <th class="text-right">Total</th><th class="text-center">Estado</th>
+          </tr></thead>
+          <tbody>
+          ${gastos.map(g => {
+            const cat = getCat(g.categoria);
+            const mp  = getMetodoPago(g.metodoPago||'efectivo');
+            const est = getEstadoGasto(g.estado||'pendiente');
+            const clsStatus = g.estado === 'aprobado' ? 'status-aprobado' : g.estado === 'rechazado' ? 'status-rechazado' : 'status-pendiente';
+            return `<tr class="${g.estado==='rechazado'?'':''}">
+              <td style="white-space:nowrap">${Fmt.date(g.fecha)}</td>
+              <td><div style="font-weight:500;max-width:160px">${escHtml(g.descripcion)}</div>${g.notas?`<div style="font-size:.65rem;color:var(--text-muted)">${escHtml(g.notas)}</div>`:''}</td>
+              <td><span style="font-size:.7rem">${escHtml(cat.label)}</span></td>
+              <td style="font-size:.8rem">${escHtml(g.proveedor||'—')}</td>
+              <td style="font-family:var(--font-mono);font-size:.75rem;color:var(--primary-400)">${escHtml(g.numeroFactura||'—')}</td>
+              <td style="font-size:.75rem">${mp.emoji} ${mp.label}</td>
+              <td style="font-family:var(--font-mono);font-size:.7rem">${escHtml(g.comprobante||'—')}</td>
+              <td class="text-right">${Fmt.currency(g.subtotal||g.monto||0)}</td>
+              <td class="text-right" style="color:var(--warning-fg)">${g.impuesto?Fmt.currency(g.impuesto):'—'}</td>
+              <td class="text-right money" style="font-weight:700">${Fmt.currency(g.monto||0)}</td>
+              <td class="text-center ${clsStatus}" style="font-size:.75rem;font-weight:700">${est.emoji} ${est.label}
+                ${g.motivoRechazo?`<div style="font-size:.6rem">(${escHtml(g.motivoRechazo)})</div>`:''}
+              </td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+          <tfoot><tr>
+            <td colspan="7">TOTAL GASTOS (aprobados + pendientes)</td>
+            <td class="text-right">${Fmt.currency(gastos.filter(g=>g.estado!=='rechazado').reduce((s,g)=>s+(g.subtotal||g.monto||0),0))}</td>
+            <td class="text-right" style="color:var(--warning-fg)">${Fmt.currency(gastos.filter(g=>g.estado!=='rechazado').reduce((s,g)=>s+(g.impuesto||0),0))}</td>
+            <td class="text-right money" style="color:var(--danger-fg)">${Fmt.currency(res.gastos)}</td>
+            <td></td>
+          </tr></tfoot>
+        </table>` : '<p style="color:var(--text-muted);font-size:.875rem">Sin gastos registrados.</p>'}
+      </div>` : ''}
+
+      <!-- 4. Comisiones (solo admin) -->
+      ${isAdmin && comisiones.length ? `
+      <div>
+        <div class="section-title">4. Comisiones al Equipo</div>
+        <table class="print-table">
+          <thead><tr><th>Colaborador</th><th>Concepto</th><th class="text-right">%</th><th class="text-right">Monto</th></tr></thead>
+          <tbody>
+          ${comisiones.map(c => {
+            const u = getUserById(c.usuarioId);
+            return `<tr>
+              <td>${escHtml(u?.nombre||'Desconocido')}</td>
+              <td>${escHtml(c.concepto||'Comisión')}</td>
+              <td class="text-right">${c.porcentaje?c.porcentaje+'%':'—'}</td>
+              <td class="text-right money" style="font-weight:700;color:var(--accent-violet)">${Fmt.currency(c.monto||0)}</td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+          <tfoot><tr>
+            <td colspan="3">TOTAL COMISIONES</td>
+            <td class="text-right money" style="color:var(--accent-violet)">${Fmt.currency(totalComisiones)}</td>
+          </tr></tfoot>
+        </table>
+      </div>` : ''}
+
+      <!-- 5. Resumen Financiero (solo admin) -->
+      ${isAdmin ? `
+      <div>
+        <div class="section-title">${comisiones.length ? '5' : '4'}. Resumen Financiero</div>
+        <div class="fin-grid">
+          ${renderFinCard('💵 Valor Cotizado',    Fmt.currency(res.valorCotizado),  'var(--text-primary)')}
+          ${renderFinCard('✅ Anticipo Recibido', Fmt.currency(res.anticipo),        'var(--success-fg)')}
+          ${renderFinCard('⏳ Saldo Pendiente',   Fmt.currency(res.saldo),           res.saldo>0?'var(--warning-fg)':'var(--success-fg)')}
+          ${renderFinCard('📉 Gastos Aprobados', Fmt.currency(res.gastosAprobados), 'var(--danger-fg)')}
+          ${res.gastosPendientes>0 ? renderFinCard('⚠️ Gastos Pendientes', Fmt.currency(res.gastosPendientes), 'var(--accent-amber)') : ''}
+          ${renderFinCard('🤝 Comisiones',        Fmt.currency(res.comisiones),      'var(--accent-violet)')}
+          ${renderFinCard('📈 Utilidad Neta',     Fmt.currency(res.utilidad),        res.utilidad>=0?'var(--success-fg)':'var(--danger-fg)')}
+          ${renderFinCard('📊 Margen %',          res.margen+'%',                    res.margen>=20?'var(--success-fg)':res.margen>=0?'var(--warning-fg)':'var(--danger-fg)')}
+        </div>
+        <div style="margin-top:16px;padding:14px 20px;background:${res.utilidad>=0?'rgba(16,185,129,.1)':'rgba(244,63,94,.1)'};border:1px solid ${res.utilidad>=0?'rgba(16,185,129,.2)':'rgba(244,63,94,.2)'};border-radius:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <span style="font-size:.875rem;color:var(--text-secondary)">Estado de Pago:</span>
+          <span class="badge ${getEstadoPago(sol.financiero?.estadoPago||'sin_pago').badge}">${getEstadoPago(sol.financiero?.estadoPago||'sin_pago').label}</span>
+          <span style="font-size:1.5rem;font-weight:700;font-family:var(--font-display);color:${res.utilidad>=0?'var(--success-fg)':'var(--danger-fg)'}">
+            ${res.utilidad>=0?'✅ Resultado Positivo':'❌ Resultado Negativo'}: ${Fmt.currency(Math.abs(res.utilidad))}
+          </span>
+        </div>
+      </div>` : ''}
+
+      <!-- 6. Observaciones -->
+      ${(cierre?.notasContabilidad || cierre?.observaciones) ? `
+      <div>
+        <div class="section-title">Observaciones del Cierre</div>
+        ${cierre.observaciones ? `<p style="font-size:.875rem;color:var(--text-secondary);margin-bottom:12px">${escHtml(cierre.observaciones)}</p>` : ''}
+        ${cierre.notasContabilidad ? `<div style="background:var(--bg-overlay);border:1px solid var(--border-default);border-radius:10px;padding:16px"><div style="font-size:.7rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px">Notas Contabilidad</div><p style="font-size:.875rem;color:var(--text-primary)">${escHtml(cierre.notasContabilidad)}</p></div>` : ''}
+      </div>` : ''}
+
+      <!-- 7. Firmas -->
+      <div>
+        <div class="section-title">Firmas y Aprobación</div>
+        <div class="firmas-grid">
+          <div class="firma-box">
+            <div class="firma-name">${escHtml(creador?.nombre||'—')}</div>
+            <div class="firma-label">Preparado por</div>
+            ${cierre ? `<div style="font-size:.7rem;color:var(--text-muted);margin-top:4px">${Fmt.date(cierre.creadoEn)}</div>` : ''}
+          </div>
+          <div class="firma-box">
+            <div class="firma-name" style="min-height:20px">${escHtml(asig?.nombre||'—')}</div>
+            <div class="firma-label">Coordinador del Evento</div>
+          </div>
+          <div class="firma-box" style="border-color:${cierre?.aprobadoContabilidad?'var(--success-fg)':'var(--border-default)'}">
+            <div class="firma-name" style="color:${cierre?.aprobadoContabilidad?'var(--success-fg)':'var(--text-muted)'}">
+              ${cierre?.aprobadoContabilidad ? escHtml(getUserById(cierre.aprobadoPor)?.nombre||'Aprobado') : 'Pendiente de aprobación'}
+            </div>
+            <div class="firma-label">Revisado Contabilidad</div>
+            ${cierre?.aprobadoContabilidad ? `<div style="font-size:.7rem;color:var(--success-fg);margin-top:4px">✅ ${Fmt.date(cierre.aprobadoEn)}</div>` : ''}
+          </div>
+        </div>
+        <div style="margin-top:24px;text-align:center;font-size:.7rem;color:var(--text-muted)">
+          Reporte generado el ${new Date().toLocaleString('es-CO')} — ${EMPRESA_CONFIG.nombre} | Sistema de Gestión Deportiva
+        </div>
+      </div>
+
+    </div><!-- /report-body -->
+  </div><!-- /report-page -->
+  `;
+}
+
+function renderFinCard(label, val, color) {
+  return `<div class="fin-card">
+    <div class="fin-label">${label}</div>
+    <div class="fin-val" style="color:${color}">${val}</div>
+  </div>`;
+}
+
+function aprobarCierre() {
+  const obs = prompt('Observaciones de contabilidad (opcional):') || '';
+  try {
+    CierreEvento.aprobar(SOL_REPORT.id, null, obs);
+    Toast.success('✅ Cierre aprobado por contabilidad');
+    SOL_REPORT = Solicitudes.getById(SOL_REPORT.id);
+    renderReport();
+    document.getElementById('btn-aprobar-cierre').style.display = 'none';
+  } catch(e) { Toast.error(e.message); }
+}
+</script>
+</body>
+</html>

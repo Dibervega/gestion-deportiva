@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Proyectos Vigentes — Gestión Deportiva</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+</head>
+<body>
+<div id="app-loader"><div class="loader-logo">🏆 Gestión Deportiva</div><div class="loader-bar"><div class="loader-bar-fill"></div></div></div>
+<div id="toast-container"></div>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content page-enter">
+
+      <!-- Leyenda semáforo -->
+      <div class="card">
+        <div class="card-body" style="padding:var(--space-4) var(--space-5)">
+          <div style="display:flex;align-items:center;gap:var(--space-6);flex-wrap:wrap">
+            <span style="font-size:var(--text-sm);font-weight:600;color:var(--text-secondary)">🚦 Semáforo de entregas:</span>
+            <div style="display:flex;gap:var(--space-4);flex-wrap:wrap;font-size:var(--text-xs)">
+              <div style="display:flex;align-items:center;gap:6px"><div class="semaforo-indicator rojo"></div> Vencido / Hoy</div>
+              <div style="display:flex;align-items:center;gap:6px"><div class="semaforo-indicator naranja"></div> ≤ 3 días</div>
+              <div style="display:flex;align-items:center;gap:6px"><div class="semaforo-indicator amarillo"></div> ≤ 7 días</div>
+              <div style="display:flex;align-items:center;gap:6px"><div class="semaforo-indicator verde"></div> &gt; 7 días</div>
+            </div>
+            <!-- Filtros rápidos -->
+            <div class="filter-bar" style="margin-left:auto" id="vig-pills">
+              <span class="filter-chip active" data-filter="all">Todos</span>
+              <span class="filter-chip" data-filter="rojo">🔴 Urgentes</span>
+              <span class="filter-chip" data-filter="naranja">🟠 Próximos</span>
+              <span class="filter-chip" data-filter="verde">🟢 A tiempo</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPIs rápidos -->
+      <div class="grid-kpi" id="vig-kpis"></div>
+
+      <!-- Tabla principal -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 Proyectos en Curso</div>
+          <div style="display:flex;gap:var(--space-2);align-items:center">
+            <div class="search-bar" style="width:200px">
+              <span class="search-bar-icon">🔍</span>
+              <input class="form-control" id="vig-buscar" placeholder="Buscar..." />
+            </div>
+            <select class="form-control" style="width:auto" id="vig-area">
+              <option value="all">Todas las áreas</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="table-wrapper" style="border:none;border-radius:0">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Ticket</th>
+                  <th>Proyecto / Cliente</th>
+                  <th>Áreas</th>
+                  <th>Estado</th>
+                  <th>Servicios</th>
+                  <th>Responsable</th>
+                  <th>Próxima Entrega</th>
+                  <th>Evento</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="vig-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vista por área (tarjetas de servicios pendientes) -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📦 Servicios Pendientes por Área</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted)" id="srv-count"></div>
+        </div>
+        <div class="card-body">
+          <div id="srv-por-area" style="display:flex;flex-direction:column;gap:var(--space-5)"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/email.js"></script>
+<script src="js/solicitudes.js"></script>
+<script src="js/shared.js"></script>
+<script>
+let filterSemaforo = 'all';
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initPage('vigentes', { title: 'Proyectos Vigentes', subtitle: 'Seguimiento en tiempo real con alertas de entrega' })) return;
+
+  // Llenar área filter
+  const selArea = document.getElementById('vig-area');
+  getAreas().filter(a=>a.activo).forEach(a => {
+    selArea.innerHTML += `<option value="${a.id}">${a.emoji} ${a.nombre}</option>`;
+  });
+
+  // Pills semáforo
+  document.querySelectorAll('#vig-pills .filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#vig-pills .filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      filterSemaforo = chip.dataset.filter;
+      renderAll();
+    });
+  });
+
+  document.getElementById('vig-buscar')?.addEventListener('input', renderAll);
+  document.getElementById('vig-area')?.addEventListener('change', renderAll);
+
+  renderAll();
+});
+
+function getVigentesFiltradas() {
+  let data = Solicitudes.getVigentes();
+
+  const buscar = document.getElementById('vig-buscar')?.value?.toLowerCase() || '';
+  const area   = document.getElementById('vig-area')?.value || 'all';
+
+  if (buscar) data = data.filter(s =>
+    s.titulo.toLowerCase().includes(buscar) ||
+    s.cliente.toLowerCase().includes(buscar) ||
+    s.ticketId.toLowerCase().includes(buscar)
+  );
+  if (area !== 'all') data = data.filter(s => {
+    const as = Array.isArray(s.areas) ? s.areas : [s.area].filter(Boolean);
+    return as.includes(area);
+  });
+  if (filterSemaforo !== 'all') {
+    data = data.filter(s => {
+      const pE = proximaEntrega(s);
+      const sem = semaforoColor(pE);
+      const cls = sem.cls.replace('semaforo-', '');
+      return cls === filterSemaforo;
+    });
+  }
+  // Ordenar por urgencia (próxima entrega más cercana primero)
+  data.sort((a, b) => {
+    const pa = proximaEntrega(a) || '9999-12-31';
+    const pb = proximaEntrega(b) || '9999-12-31';
+    return new Date(pa) - new Date(pb);
+  });
+  return data;
+}
+
+function renderAll() {
+  const data = getVigentesFiltradas();
+  renderKPIs(data);
+  renderTabla(data);
+  renderPorArea();
+}
+
+function renderKPIs(data) {
+  const cont = document.getElementById('vig-kpis');
+  if (!cont) return;
+  const urgentes = data.filter(s => { const sem = semaforoColor(proximaEntrega(s)); return sem.cls === 'semaforo-rojo'; });
+  const proximos = data.filter(s => { const sem = semaforoColor(proximaEntrega(s)); return sem.cls === 'semaforo-naranja'; });
+  const atiempo  = data.filter(s => { const sem = semaforoColor(proximaEntrega(s)); return ['semaforo-verde','semaforo-amarillo'].includes(sem.cls); });
+  const totalSrv = data.reduce((s,p) => s + (p.servicios||[]).filter(sv=>sv.estado!=='entregado').length, 0);
+
+  cont.innerHTML = `
+    <div class="kpi-card kpi-danger" style="animation-delay:0ms">
+      <div class="kpi-label">🔴 Urgentes / Vencidos</div>
+      <div class="kpi-value" style="color:var(--danger-fg)">${urgentes.length}</div>
+      <div class="kpi-icon kpi-danger">🚨</div>
+    </div>
+    <div class="kpi-card kpi-warning" style="animation-delay:50ms">
+      <div class="kpi-label">🟠 Vencen en ≤ 3 días</div>
+      <div class="kpi-value" style="color:var(--warning-fg)">${proximos.length}</div>
+      <div class="kpi-icon kpi-warning">⏰</div>
+    </div>
+    <div class="kpi-card kpi-success" style="animation-delay:100ms">
+      <div class="kpi-label">🟢 A tiempo</div>
+      <div class="kpi-value" style="color:var(--success-fg)">${atiempo.length}</div>
+      <div class="kpi-icon kpi-success">✅</div>
+    </div>
+    <div class="kpi-card kpi-primary" style="animation-delay:150ms">
+      <div class="kpi-label">📦 Servicios Pendientes</div>
+      <div class="kpi-value">${totalSrv}</div>
+      <div class="kpi-icon kpi-primary">📋</div>
+    </div>
+  `;
+}
+
+function renderTabla(data) {
+  const tbody = document.getElementById('vig-tbody');
+  if (!tbody) return;
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-muted)">No hay proyectos con esos filtros</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.map(s => {
+    const est   = getEstado(s.estado);
+    const asig  = getUserById(s.asignadoA);
+    const areas = Array.isArray(s.areas) ? s.areas : [s.area].filter(Boolean);
+    const proxEn = proximaEntrega(s);
+    const sem   = semaforoColor(proxEn);
+    const pendientes = (s.servicios||[]).filter(sv=>sv.estado!=='entregado').length;
+    const total      = (s.servicios||[]).length;
+    const semClsSimple = sem.cls.replace('semaforo-','');
+
+    return `<tr class="vigentes-row" onclick="window.location.href='detalle-proyecto.html?id=${s.id}'">
+      <td><span class="col-ticket">${escHtml(s.ticketId)}</span></td>
+      <td><div class="col-title-wrap"><div class="title">${escHtml(s.titulo)}</div><div class="sub">👤 ${escHtml(s.cliente)}</div></div></td>
+      <td><div class="col-areas">${areas.slice(0,2).map(aId => { const a=getArea(aId); return `<span class="badge badge-area">${a.emoji} ${a.nombre}</span>`; }).join('')}${areas.length>2 ? `<span class="badge badge-pending">+${areas.length-2}</span>` : ''}</div></td>
+      <td><span class="badge ${est.badge}">${est.label}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          <span style="font-size:var(--text-sm);font-weight:600;color:${pendientes > 0 ? 'var(--warning-fg)' : 'var(--success-fg)'}">${pendientes}</span>
+          <span style="font-size:var(--text-xs);color:var(--text-muted)">/ ${total}</span>
+        </div>
+        <div class="progress-wrap" style="width:60px;margin-top:3px">
+          <div class="progress-bar success" style="width:${total ? Math.round(((total-pendientes)/total)*100) : 0}%"></div>
+        </div>
+      </td>
+      <td>${asig ? `<div style="display:flex;align-items:center;gap:6px"><div class="avatar avatar-sm" style="background:${avatarColor(asig.nombre)}">${Fmt.initials(asig.nombre)}</div><span style="font-size:var(--text-xs)">${escHtml(asig.nombre)}</span></div>` : '<span style="color:var(--text-muted)">—</span>'}</td>
+      <td>
+        <div class="semaforo-cell">
+          <div class="semaforo-indicator ${semClsSimple}"></div>
+          <span class="semaforo-pill ${sem.cls}">${sem.emoji} ${sem.label}</span>
+        </div>
+        ${proxEn ? `<div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">${Fmt.date(proxEn)}</div>` : ''}
+      </td>
+      <td style="font-size:var(--text-xs);color:var(--text-secondary)">${s.fechaEvento ? Fmt.date(s.fechaEvento) : '—'}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="window.location.href='detalle-proyecto.html?id=${s.id}'" data-tooltip="Ver detalle">👁️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPorArea() {
+  const cont = document.getElementById('srv-por-area');
+  const countEl = document.getElementById('srv-count');
+  if (!cont) return;
+
+  const todas = Solicitudes.getVigentes();
+  const areas = getAreas().filter(a => a.activo);
+
+  // Recolectar todos los servicios pendientes por área
+  const porArea = {};
+  areas.forEach(a => { porArea[a.id] = []; });
+
+  todas.forEach(sol => {
+    (sol.servicios || []).forEach(srv => {
+      if (srv.estado === 'entregado') return;
+      if (porArea[srv.area] !== undefined) {
+        const sem = semaforoColor(srv.fechaEntrega);
+        porArea[srv.area].push({ ...srv, solId: sol.id, solTitulo: sol.titulo, solTicket: sol.ticketId, sem });
+      }
+    });
+  });
+
+  // Ordenar servicios de cada área por urgencia
+  areas.forEach(a => {
+    porArea[a.id].sort((x, y) => {
+      const fa = x.fechaEntrega || '9999', fb = y.fechaEntrega || '9999';
+      return new Date(fa) - new Date(fb);
+    });
+  });
+
+  const totalSrv = areas.reduce((s,a) => s + porArea[a.id].length, 0);
+  if (countEl) countEl.textContent = `${totalSrv} servicios pendientes`;
+
+  const activeAreas = areas.filter(a => porArea[a.id].length > 0);
+  if (!activeAreas.length) {
+    cont.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🎉</div><div class="empty-state-title">¡Todo entregado!</div></div>`;
+    return;
+  }
+
+  cont.innerHTML = activeAreas.map(a => {
+    const srvs = porArea[a.id];
+    const urgentes = srvs.filter(s => s.sem.cls === 'semaforo-rojo').length;
+    return `
+      <div>
+        <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3)">
+          <div style="width:8px;height:8px;border-radius:50%;background:${a.color || 'var(--primary-500)'}"></div>
+          <span style="font-weight:700;color:var(--text-primary)">${a.emoji} ${a.nombre}</span>
+          <span class="badge badge-pending">${srvs.length} pendiente${srvs.length>1?'s':''}</span>
+          ${urgentes > 0 ? `<span class="badge badge-high">🔴 ${urgentes} urgente${urgentes>1?'s':''}</span>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-2)">
+          ${srvs.map(srv => {
+            const asig = getUserById(srv.responsable);
+            return `
+              <div class="servicio-card" onclick="window.location.href='detalle-proyecto.html?id=${srv.solId}'" style="cursor:pointer">
+                <div class="servicio-header">
+                  <div class="min-w-0">
+                    <div class="servicio-nombre truncate">${escHtml(srv.nombre)}</div>
+                    <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">
+                      <span class="col-ticket" style="font-size:.65rem">${escHtml(srv.solTicket)}</span>
+                      · ${escHtml(srv.solTitulo)}
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:var(--space-2);flex-shrink:0">
+                    <span class="badge ${getEstadoSrv(srv.estado).badge}">${getEstadoSrv(srv.estado).label}</span>
+                  </div>
+                </div>
+                <div class="servicio-meta">
+                  <span style="font-size:var(--text-xs);color:var(--text-secondary)">
+                    📦 <strong class="servicio-cantidad">${srv.cantidad}</strong> ${srv.unidad}
+                  </span>
+                  ${asig ? `<div style="display:flex;align-items:center;gap:4px;font-size:var(--text-xs);color:var(--text-muted)">
+                    <div class="avatar avatar-sm" style="background:${avatarColor(asig.nombre)};width:18px;height:18px;font-size:.5rem">${Fmt.initials(asig.nombre)}</div>
+                    ${escHtml(asig.nombre)}
+                  </div>` : ''}
+                  ${srv.fechaEntrega ? `<span class="semaforo-pill ${srv.sem.cls}" style="margin-left:auto">${srv.sem.emoji} ${srv.sem.label}</span>` : ''}
+                </div>
+                ${srv.notas ? `<div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:var(--space-1);font-style:italic">"${escHtml(srv.notas)}"</div>` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }).join('<div class="divider"></div>');
+}
+</script>
+</body>
+</html>

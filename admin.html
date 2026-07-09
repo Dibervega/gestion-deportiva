@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Administración — Gestión Deportiva</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+</head>
+<body>
+<div id="app-loader"><div class="loader-logo">🏆 Gestión Deportiva</div><div class="loader-bar"><div class="loader-bar-fill"></div></div></div>
+<div id="toast-container"></div>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content page-enter">
+
+      <div class="tabs" style="width:fit-content">
+        <button class="tab-btn active" onclick="setTab('usuarios')">👥 Usuarios</button>
+        <button class="tab-btn" onclick="setTab('areas')">🏢 Áreas</button>
+        <button class="tab-btn" onclick="setTab('telegram')">🤖 Telegram Bot</button>
+        <button class="tab-btn" onclick="setTab('config')">⚙️ Configuración</button>
+        <button class="tab-btn" onclick="setTab('datos')">🗄️ Datos</button>
+      </div>
+
+      <!-- Tab Usuarios -->
+      <div id="tab-usuarios" style="display:flex;flex-direction:column;gap:var(--space-5)">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">👥 Usuarios del Sistema</div>
+            <button class="btn btn-primary btn-sm" onclick="openNuevoUsuario()">+ Nuevo Usuario</button>
+          </div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-3)" id="users-list"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">🔐 Roles y Permisos</div></div>
+          <div class="card-body" style="padding:0">
+            <div class="table-wrapper" style="border:none;border-radius:0">
+              <table class="table">
+                <thead><tr><th>Rol</th><th>Ver Solicitudes</th><th>Crear/Editar</th><th>Cambiar Estado</th><th>Ver Financiero</th><th>Admin</th></tr></thead>
+                <tbody>
+                  <tr><td><span class="badge badge-high">👑 Admin</span></td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+                  <tr><td><span class="badge badge-progress">👤 Coordinador</span></td><td>✅</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td></tr>
+                  <tr><td><span class="badge badge-pending">👁️ Visualizador</span></td><td>✅</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Telegram Bot -->
+      <div id="tab-telegram" style="display:none;flex-direction:column;gap:var(--space-5)">
+
+        <!-- Estado del bot -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🤖 Estado del Bot de Telegram</div>
+            <span class="badge badge-progress" id="bot-status-badge">Sin configurar</span>
+          </div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);max-width:600px">
+              <div style="background:var(--bg-overlay);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--space-4)">
+                <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:var(--space-2)">Bot configurado</div>
+                <div style="font-size:var(--text-xl);font-weight:700;color:var(--primary-300)" id="bot-name-display">—</div>
+              </div>
+              <div style="background:var(--bg-overlay);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--space-4)">
+                <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;color:var(--text-muted);margin-bottom:var(--space-2)">Usuarios autorizados</div>
+                <div style="font-size:var(--text-xl);font-weight:700;color:var(--success-fg)" id="bot-users-count">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Guía de cómo obtener el ID -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">📱 ¿Cómo añadir usuarios al bot?</div></div>
+          <div class="card-body">
+            <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+              <div style="background:var(--info-bg);border:1px solid rgba(0,212,255,.2);border-radius:var(--radius-md);padding:var(--space-4)">
+                <p style="font-size:var(--text-sm);color:var(--info-fg);font-weight:700;margin-bottom:var(--space-3)">Pasos para cada colaborador:</p>
+                <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+                  <div style="display:flex;align-items:flex-start;gap:var(--space-3)">
+                    <div style="width:28px;height:28px;border-radius:50%;background:var(--primary-600);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0">1</div>
+                    <div>
+                      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary)">Abrir Telegram y buscar <code style="color:var(--primary-300)">@userinfobot</code></div>
+                      <div style="font-size:var(--text-xs);color:var(--text-secondary)">Es un bot oficial que muestra tu información</div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:var(--space-3)">
+                    <div style="width:28px;height:28px;border-radius:50%;background:var(--primary-600);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0">2</div>
+                    <div>
+                      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary)">Escribirle <code style="color:var(--primary-300)">/start</code> o cualquier mensaje</div>
+                      <div style="font-size:var(--text-xs);color:var(--text-secondary)">Responderá con tu ID numérico, por ejemplo: <strong>Id: 123456789</strong></div>
+                    </div>
+                  </div>
+                  <div style="display:flex;align-items:flex-start;gap:var(--space-3)">
+                    <div style="width:28px;height:28px;border-radius:50%;background:var(--primary-600);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0">3</div>
+                    <div>
+                      <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-primary)">Enviar ese número al administrador</div>
+                      <div style="font-size:var(--text-xs);color:var(--text-secondary)">El admin lo agrega aquí abajo y listo ✅</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de usuarios del bot -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">👥 Usuarios Autorizados del Bot</div>
+            <button class="btn btn-primary btn-sm" onclick="openNuevoBotUser()">+ Autorizar Usuario</button>
+          </div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-3)" id="bot-users-list"></div>
+          <div class="card-footer">
+            <p style="font-size:var(--text-xs);color:var(--text-muted)">💡 Solo estos usuarios pueden crear solicitudes vía el bot de Telegram. Máximo recomendado: 15 personas.</p>
+          </div>
+        </div>
+
+        <!-- Comandos disponibles -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">📋 Comandos del Bot</div></div>
+          <div class="card-body" style="padding:0">
+            <div class="table-wrapper" style="border:none;border-radius:0">
+              <table class="table">
+                <thead><tr><th>Comando</th><th>Función</th><th>Disponible para</th></tr></thead>
+                <tbody>
+                  <tr><td><code>🎙️ Audio de voz</code></td><td>Crear solicitud completa con IA (Whisper + GPT-4o)</td><td>Todos los autorizados</td></tr>
+                  <tr><td><code>/nueva</code></td><td>Crear solicitud paso a paso (texto)</td><td>Todos los autorizados</td></tr>
+                  <tr><td><code>/estado [ticket]</code></td><td>Consultar estado de un ticket</td><td>Todos los autorizados</td></tr>
+                  <tr><td><code>/mis_proyectos</code></td><td>Ver proyectos activos del sistema</td><td>Todos los autorizados</td></tr>
+                  <tr><td><code>/vigentes</code></td><td>Entregas en los próximos 7 días</td><td>Todos los autorizados</td></tr>
+                  <tr><td><code>/ayuda</code></td><td>Ver lista de comandos</td><td>Todos los autorizados</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div id="tab-areas" style="display:none;flex-direction:column;gap:var(--space-5)">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🏢 Gestión de Áreas</div>
+            <button class="btn btn-primary btn-sm" onclick="openNuevaArea()">+ Nueva Área</button>
+          </div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-3)" id="areas-list"></div>
+          <div class="card-footer">
+            <p style="font-size:var(--text-xs);color:var(--text-muted)">
+              💡 Las áreas activas aparecen en el menú lateral, en los formularios de solicitud y en los filtros. Desactivar un área no borra sus datos.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Configuración -->
+      <div id="tab-config" style="display:none;flex-direction:column;gap:var(--space-5)">
+        <div class="card">
+          <div class="card-header"><div class="card-title">🏢 Datos de la Empresa</div></div>
+          <div class="card-body">
+            <div style="display:flex;flex-direction:column;gap:var(--space-4);max-width:500px">
+              <div class="form-group">
+                <label class="form-label">Nombre de la Empresa</label>
+                <input class="form-control" id="cfg-nombre" value="${EMPRESA_CONFIG.nombre}" />
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Moneda</label>
+                  <select class="form-control" id="cfg-moneda">
+                    <option value="COP">COP — Peso Colombiano</option>
+                    <option value="USD">USD — Dólar</option>
+                    <option value="EUR">EUR — Euro</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Zona Horaria</label>
+                  <select class="form-control" id="cfg-tz">
+                    <option value="America/Bogota">América/Bogotá (UTC-5)</option>
+                    <option value="America/Lima">América/Lima (UTC-5)</option>
+                    <option value="America/Mexico_City">América/México (UTC-6)</option>
+                    <option value="America/Santiago">América/Santiago</option>
+                    <option value="America/Buenos_Aires">América/Buenos Aires</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">📧 Notificaciones Email (EmailJS)</label>
+                <div style="background:var(--info-bg);border:1px solid rgba(0,212,255,.2);border-radius:var(--radius-md);padding:var(--space-4)">
+                  <p style="font-size:var(--text-sm);color:var(--info-fg);font-weight:600;margin-bottom:var(--space-2)">Para activar emails automáticos:</p>
+                  <ol style="font-size:var(--text-xs);color:var(--text-secondary);padding-left:var(--space-4);display:flex;flex-direction:column;gap:var(--space-1)">
+                    <li>Ve a <a href="https://www.emailjs.com" target="_blank">emailjs.com</a> y crea cuenta gratuita</li>
+                    <li>Conecta tu correo (Gmail, Outlook, etc.)</li>
+                    <li>Crea plantilla de email</li>
+                    <li>Copia credenciales en <code style="color:var(--primary-300)">js/firebase-config.js</code></li>
+                  </ol>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="Toast.info('Configuración guardada')">Guardar Configuración</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Datos -->
+      <div id="tab-datos" style="display:none;flex-direction:column;gap:var(--space-5)">
+        <div class="card">
+          <div class="card-header"><div class="card-title">🗄️ Gestión de Datos</div></div>
+          <div class="card-body">
+            <div style="display:flex;flex-direction:column;gap:var(--space-4);max-width:500px">
+              <div style="background:var(--warning-bg);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-md);padding:var(--space-4)">
+                <p style="font-size:var(--text-sm);color:var(--warning-fg);font-weight:600">⚠️ Modo Demo Activo</p>
+                <p style="font-size:var(--text-xs);color:var(--text-secondary);margin-top:var(--space-2)">Los datos se guardan en el navegador. Para multi-usuario, configura Firebase.</p>
+              </div>
+              <div id="storage-stats" style="background:var(--bg-overlay);border:1px solid var(--border-default);border-radius:var(--radius-md);padding:var(--space-4)">Cargando...</div>
+              <div style="display:flex;gap:var(--space-3);flex-wrap:wrap">
+                <button class="btn btn-secondary" onclick="exportarDatos()">📤 Exportar JSON</button>
+                <button class="btn btn-danger" onclick="resetDemoData()">🔄 Reiniciar Demo</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/email.js"></script>
+<script src="js/solicitudes.js"></script>
+<script src="js/shared.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initPage('admin', { title: 'Administración', subtitle: 'Usuarios, áreas y configuración' })) return;
+  if (!Auth.can('all')) { Toast.warning('Solo admins'); window.location.href='dashboard.html'; return; }
+  renderUsers();
+  renderAreas();
+  renderStorageStats();
+});
+
+function setTab(tab) {
+  const tabs = ['usuarios','areas','telegram','config','datos'];
+  tabs.forEach(t => {
+    const el = document.getElementById(`tab-${t}`);
+    if (el) el.style.display = t === tab ? 'flex' : 'none';
+  });
+  document.querySelectorAll('.tabs .tab-btn').forEach((b,i) => b.classList.toggle('active', tabs[i] === tab));
+  if (tab === 'datos') renderStorageStats();
+  if (tab === 'areas') renderAreas();
+  if (tab === 'telegram') renderBotUsers();
+}
+
+// ── Usuarios ──────────────────────────────────────────────
+function renderUsers() {
+  const cont  = document.getElementById('users-list');
+  const users = Store.get('users') || [];
+  if (!cont) return;
+  if (!users.length) { cont.innerHTML = '<div class="empty-state"><div class="empty-state-title">Sin usuarios</div></div>'; return; }
+  cont.innerHTML = users.map(u => {
+    const role = ROLES.find(r => r.id === u.rol);
+    const areas = (Array.isArray(u.areas) ? u.areas : [u.area].filter(Boolean)).map(aId => getArea(aId)?.nombre).filter(Boolean).join(', ');
+    return `<div class="user-card">
+      <div class="avatar" style="background:${avatarColor(u.nombre)}">${Fmt.initials(u.nombre)}</div>
+      <div class="user-card-info">
+        <div class="user-card-name">${escHtml(u.nombre)} ${!u.activo ? '<span class="badge badge-cancelled" style="font-size:.6rem">Inactivo</span>' : ''}</div>
+        <div class="user-card-meta">${escHtml(u.email)} · ${role?.label||u.rol} ${areas ? `· ${areas}` : ''}</div>
+      </div>
+      <div class="user-card-actions">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="toggleUser('${u.id}')" data-tooltip="${u.activo?'Desactivar':'Activar'}">${u.activo ? '🔴' : '🟢'}</button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="editUser('${u.id}')" data-tooltip="Editar">✏️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openNuevoUsuario() {
+  const areas = getAreas().filter(a=>a.activo);
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">👤 Nuevo Usuario</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Nombre completo <span class="required">*</span></label>
+            <input class="form-control" id="nu-nombre" placeholder="Nombre del usuario" />
+          </div>
+          <div class="form-group"><label class="form-label">Email <span class="required">*</span></label>
+            <input class="form-control" type="email" id="nu-email" placeholder="usuario@empresa.com" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Rol</label>
+            <select class="form-control" id="nu-rol">
+              ${ROLES.map(r => `<option value="${r.id}">${r.label}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Áreas de trabajo</label>
+          <div class="areas-selector">
+            ${areas.map(a => `<div class="area-chip" data-area="${a.id}" onclick="this.classList.toggle('selected')">${a.emoji} ${a.nombre}</div>`).join('')}
+          </div>
+        </div>
+        <div style="background:var(--info-bg);border:1px solid rgba(0,212,255,.2);border-radius:var(--radius-md);padding:var(--space-3)">
+          <p style="font-size:var(--text-xs);color:var(--info-fg)">💡 En modo demo la contraseña es el username del email. Con Firebase Auth el usuario recibirá un email de bienvenida.</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-crear-user">Crear Usuario</button>
+    </div>
+  `);
+  modal.querySelector('#btn-crear-user').addEventListener('click', () => {
+    const nombre = modal.querySelector('#nu-nombre').value.trim();
+    const email  = modal.querySelector('#nu-email').value.trim();
+    const rol    = modal.querySelector('#nu-rol').value;
+    const areas  = [...modal.querySelectorAll('.area-chip.selected')].map(c => c.dataset.area);
+    if (!nombre || !email) { Toast.warning('Nombre y email son obligatorios'); return; }
+    const users = Store.get('users') || [];
+    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) { Toast.error('Ya existe ese email'); return; }
+    Store.push('users', { id: generateId(), nombre, email, rol, areas, activo: true });
+    close(); Toast.success(`Usuario ${nombre} creado`); renderUsers();
+  });
+}
+
+function toggleUser(id) {
+  const users = Store.get('users') || [];
+  const idx = users.findIndex(u => u.id === id);
+  if (idx < 0) return;
+  users[idx].activo = !users[idx].activo;
+  Store.set('users', users);
+  Toast.info(`Usuario ${users[idx].activo ? 'activado' : 'desactivado'}`);
+  renderUsers();
+}
+
+function editUser(id) {
+  const users = Store.get('users') || [];
+  const u = users.find(us => us.id === id);
+  if (!u) return;
+  const areas = getAreas().filter(a=>a.activo);
+  const uAreas = Array.isArray(u.areas) ? u.areas : [u.area].filter(Boolean);
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">✏️ Editar Usuario</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-group"><label class="form-label">Nombre</label>
+          <input class="form-control" id="eu-nombre" value="${escHtml(u.nombre)}" />
+        </div>
+        <div class="form-group"><label class="form-label">Rol</label>
+          <select class="form-control" id="eu-rol">
+            ${ROLES.map(r => `<option value="${r.id}" ${u.rol===r.id?'selected':''}>${r.label}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Áreas de trabajo</label>
+          <div class="areas-selector">
+            ${areas.map(a => `<div class="area-chip ${uAreas.includes(a.id)?'selected':''}" data-area="${a.id}" onclick="this.classList.toggle('selected')">${a.emoji} ${a.nombre}</div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-user">Guardar</button>
+    </div>
+  `);
+  modal.querySelector('#btn-guardar-user').addEventListener('click', () => {
+    const idx2 = users.findIndex(us => us.id === id);
+    if (idx2 < 0) return;
+    users[idx2].nombre = modal.querySelector('#eu-nombre').value.trim() || users[idx2].nombre;
+    users[idx2].rol    = modal.querySelector('#eu-rol').value;
+    users[idx2].areas  = [...modal.querySelectorAll('.area-chip.selected')].map(c => c.dataset.area);
+    Store.set('users', users);
+    close(); Toast.success('Usuario actualizado'); renderUsers();
+  });
+}
+
+// ── Áreas ─────────────────────────────────────────────────
+function renderAreas() {
+  const cont  = document.getElementById('areas-list');
+  const areas = getAreas();
+  if (!cont) return;
+  cont.innerHTML = areas.map(a => `
+    <div class="area-card">
+      <div class="area-color-dot" style="background:${a.color||'#888'}"></div>
+      <div style="font-size:1.2rem">${a.emoji}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:var(--text-sm)">${escHtml(a.nombre)}</div>
+        <div style="font-size:var(--text-xs);color:var(--text-muted)">ID: ${a.id}</div>
+      </div>
+      <span class="badge ${a.activo ? 'badge-completed' : 'badge-cancelled'}">${a.activo ? 'Activa' : 'Inactiva'}</span>
+      <div style="display:flex;gap:var(--space-1)">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="toggleArea('${a.id}')" data-tooltip="${a.activo?'Desactivar':'Activar'}">${a.activo ? '🔴' : '🟢'}</button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="editArea('${a.id}')" data-tooltip="Editar">✏️</button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmarEliminarArea('${a.id}')" data-tooltip="Eliminar">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openNuevaArea() {
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">🏢 Nueva Área</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Nombre <span class="required">*</span></label>
+            <input class="form-control" id="na-nombre" placeholder="Ej: Sonido y audio" />
+          </div>
+          <div class="form-group"><label class="form-label">Emoji</label>
+            <input class="form-control" id="na-emoji" placeholder="🎵" maxlength="4" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Color (HEX)</label>
+            <input class="form-control" type="color" id="na-color" value="#5865f2" style="height:42px;padding:4px" />
+          </div>
+          <div class="form-group"><label class="form-label">ID (slug) <span class="required">*</span></label>
+            <input class="form-control" id="na-id" placeholder="sonido-audio" />
+          </div>
+        </div>
+        <div style="background:var(--info-bg);border:1px solid rgba(0,212,255,.2);border-radius:var(--radius-md);padding:var(--space-3)">
+          <p style="font-size:var(--text-xs);color:var(--info-fg)">💡 El ID debe ser único, sin espacios ni caracteres especiales (usa guiones). Ej: cronometraje, foto-video</p>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-crear-area">Crear Área</button>
+    </div>
+  `);
+  // Auto-generar ID desde nombre
+  modal.querySelector('#na-nombre').addEventListener('input', function() {
+    const slug = this.value.toLowerCase().trim().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+    modal.querySelector('#na-id').value = slug;
+  });
+  modal.querySelector('#btn-crear-area').addEventListener('click', () => {
+    const nombre = modal.querySelector('#na-nombre').value.trim();
+    const emoji  = modal.querySelector('#na-emoji').value.trim() || '📌';
+    const color  = modal.querySelector('#na-color').value;
+    const id     = modal.querySelector('#na-id').value.trim().toLowerCase().replace(/\s+/g,'-');
+    if (!nombre || !id) { Toast.warning('Nombre e ID son obligatorios'); return; }
+    const areas = getAreas();
+    if (areas.find(a => a.id === id)) { Toast.error('Ya existe un área con ese ID'); return; }
+    areas.push({ id, nombre, emoji, color, activo: true });
+    Store.set('areas', areas);
+    close(); Toast.success(`Área "${nombre}" creada`); renderAreas();
+  });
+}
+
+function editArea(id) {
+  const areas = getAreas();
+  const a = areas.find(ar => ar.id === id);
+  if (!a) return;
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">✏️ Editar Área</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Nombre</label>
+            <input class="form-control" id="ea-nombre" value="${escHtml(a.nombre)}" />
+          </div>
+          <div class="form-group"><label class="form-label">Emoji</label>
+            <input class="form-control" id="ea-emoji" value="${a.emoji}" maxlength="4" />
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Color</label>
+          <input class="form-control" type="color" id="ea-color" value="${a.color||'#5865f2'}" style="height:42px;padding:4px" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-area">Guardar</button>
+    </div>
+  `);
+  modal.querySelector('#btn-guardar-area').addEventListener('click', () => {
+    const idx = areas.findIndex(ar => ar.id === id);
+    if (idx < 0) return;
+    areas[idx].nombre = modal.querySelector('#ea-nombre').value.trim() || areas[idx].nombre;
+    areas[idx].emoji  = modal.querySelector('#ea-emoji').value.trim() || areas[idx].emoji;
+    areas[idx].color  = modal.querySelector('#ea-color').value;
+    Store.set('areas', areas);
+    close(); Toast.success('Área actualizada'); renderAreas();
+  });
+}
+
+function toggleArea(id) {
+  const areas = getAreas();
+  const idx = areas.findIndex(a => a.id === id);
+  if (idx < 0) return;
+  areas[idx].activo = !areas[idx].activo;
+  Store.set('areas', areas);
+  Toast.info(`Área ${areas[idx].activo ? 'activada' : 'desactivada'}`);
+  renderAreas();
+}
+
+function confirmarEliminarArea(id) {
+  const areas = getAreas();
+  const a = areas.find(ar => ar.id === id);
+  confirmDialog(`¿Eliminar el área "${a?.nombre}"? Las solicitudes que la usen mantendrán la referencia pero el área no aparecerá en los filtros.`, 'Eliminar Área').then(ok => {
+    if (!ok) return;
+    Store.set('areas', areas.filter(ar => ar.id !== id));
+    Toast.success('Área eliminada');
+    renderAreas();
+  });
+}
+
+// ── Datos ──────────────────────────────────────────────────
+function renderStorageStats() {
+  const cont = document.getElementById('storage-stats');
+  if (!cont) return;
+  const soles  = (Store.get('solicitudes') || []).length;
+  const users  = (Store.get('users') || []).length;
+  const areas  = (Store.get('areas') || []).length;
+  const notifs = (Store.get('notificaciones') || []).length;
+  let size = 0;
+  for (let k in localStorage) { if (k.startsWith('gestion_')) size += (localStorage[k].length * 2); }
+  cont.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);font-size:var(--text-sm)">
+      <div>📋 Solicitudes: <strong>${soles}</strong></div>
+      <div>👥 Usuarios: <strong>${users}</strong></div>
+      <div>🏢 Áreas: <strong>${areas}</strong></div>
+      <div>🔔 Notificaciones: <strong>${notifs}</strong></div>
+      <div colspan="2">💾 Tamaño: <strong>${(size/1024).toFixed(1)} KB</strong></div>
+    </div>`;
+}
+
+function exportarDatos() {
+  const data = {
+    exportado: new Date().toISOString(),
+    solicitudes: Store.get('solicitudes') || [],
+    usuarios:    Store.get('users') || [],
+    areas:       Store.get('areas') || [],
+    notificaciones: Store.get('notificaciones') || [],
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `gestion-backup-${new Date().toISOString().split('T')[0]}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  Toast.success('Datos exportados');
+}
+
+function resetDemoData() {
+  confirmDialog('¿Reiniciar todos los datos de demo? No se puede deshacer.', '⚠️ Reiniciar Datos').then(ok => {
+    if (!ok) return;
+    localStorage.removeItem('gestion_initialized');
+    localStorage.removeItem('gestion_solicitudes');
+    localStorage.removeItem('gestion_notificaciones');
+    localStorage.removeItem('gestion_areas');
+    initDemoData();
+    Toast.success('Datos de demo restaurados');
+    renderUsers(); renderAreas(); renderStorageStats();
+  });
+}
+
+// ── Bot de Telegram ────────────────────────────────────────────
+function getBotUsers() {
+  return Store.get('bot_users') || [];
+}
+
+function renderBotUsers() {
+  const cont  = document.getElementById('bot-users-list');
+  const count = document.getElementById('bot-users-count');
+  const users = Store.get('users') || [];
+  const botUsers = getBotUsers();
+
+  if (count) count.textContent = botUsers.filter(u => u.activo !== false).length;
+
+  // Nombre del bot
+  const botConfig = Store.get('bot_config') || {};
+  const nameEl = document.getElementById('bot-name-display');
+  if (nameEl) nameEl.textContent = botConfig.botUsername ? `@${botConfig.botUsername}` : 'No configurado';
+
+  // Badge estado
+  const badgeEl = document.getElementById('bot-status-badge');
+  if (badgeEl) {
+    if (botConfig.botToken) {
+      badgeEl.textContent = '🟢 Configurado';
+      badgeEl.className = 'badge badge-completed';
+    } else {
+      badgeEl.textContent = '⚪ Sin token';
+      badgeEl.className = 'badge badge-pending';
+    }
+  }
+
+  if (!cont) return;
+  if (!botUsers.length) {
+    cont.innerHTML = `<div class="empty-state" style="padding:var(--space-8)">
+      <div class="empty-state-icon">🤖</div>
+      <div class="empty-state-title">Sin usuarios autorizados</div>
+      <div class="empty-state-desc">Agrega a las personas que podrán crear solicitudes vía Telegram</div>
+    </div>`;
+    return;
+  }
+
+  cont.innerHTML = botUsers.map(bu => {
+    const sysUser = users.find(u => u.id === bu.usuarioId);
+    return `<div class="user-card">
+      <div style="font-size:1.5rem">📱</div>
+      <div class="user-card-info">
+        <div class="user-card-name">
+          ${escHtml(bu.nombre || sysUser?.nombre || 'Sin nombre')}
+          ${bu.activo === false ? '<span class="badge badge-cancelled" style="font-size:.6rem">Inactivo</span>' : '<span class="badge badge-completed" style="font-size:.6rem">Activo</span>'}
+        </div>
+        <div class="user-card-meta">
+          Telegram ID: <code style="color:var(--primary-400);font-family:var(--font-mono)">${bu.telegramId}</code>
+          ${bu.username ? ` · @${escHtml(bu.username)}` : ''}
+          ${sysUser ? ` · ${sysUser.email}` : ''}
+        </div>
+        ${bu.creadoEn ? `<div style="font-size:.65rem;color:var(--text-muted)">Agregado: ${Fmt.date(bu.creadoEn)}</div>` : ''}
+      </div>
+      <div class="user-card-actions">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="toggleBotUser('${bu.id}')" data-tooltip="${bu.activo!==false?'Desactivar':'Activar'}">
+          ${bu.activo !== false ? '🔴' : '🟢'}
+        </button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="eliminarBotUser('${bu.id}')" data-tooltip="Eliminar">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openNuevoBotUser() {
+  const sysUsers = Store.get('users') || [];
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">📱 Autorizar Usuario en Bot</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div style="background:var(--info-bg);border:1px solid rgba(0,212,255,.2);border-radius:var(--radius-md);padding:var(--space-3)">
+          <p style="font-size:var(--text-sm);color:var(--info-fg);font-weight:600">¿Cómo obtener el ID de Telegram?</p>
+          <p style="font-size:var(--text-xs);color:var(--text-secondary);margin-top:4px">El colaborador debe abrir Telegram → buscar <strong>@userinfobot</strong> → escribir cualquier mensaje → el bot responde con su ID numérico.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nombre del colaborador <span class="required">*</span></label>
+          <input class="form-control" id="bu-nombre" placeholder="Ej: Carlos Rodríguez" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">ID de Telegram <span class="required">*</span></label>
+          <input class="form-control" id="bu-tid" placeholder="Ej: 123456789" style="font-family:var(--font-mono);font-size:1.1rem" type="number" />
+          <span style="font-size:var(--text-xs);color:var(--text-muted)">Solo números, sin @ ni espacios</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Usuario de Telegram (opcional)</label>
+          <input class="form-control" id="bu-username" placeholder="@juan.garcia (sin @)" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Vincular con usuario del sistema (opcional)</label>
+          <select class="form-control" id="bu-sysuser">
+            <option value="">— Sin vincular —</option>
+            ${sysUsers.map(u => `<option value="${u.id}">${escHtml(u.nombre)} (${escHtml(u.email)})</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-crear-botuser">✅ Autorizar</button>
+    </div>
+  `);
+
+  modal.querySelector('#btn-crear-botuser').addEventListener('click', () => {
+    const nombre     = modal.querySelector('#bu-nombre').value.trim();
+    const telegramId = modal.querySelector('#bu-tid').value.trim();
+    const username   = modal.querySelector('#bu-username').value.trim().replace('@','');
+    const usuarioId  = modal.querySelector('#bu-sysuser').value;
+
+    if (!nombre || !telegramId) { Toast.warning('Nombre e ID de Telegram son obligatorios'); return; }
+    if (!/^\d+$/.test(telegramId)) { Toast.error('El ID de Telegram debe ser solo números'); return; }
+
+    const botUsers = getBotUsers();
+    if (botUsers.find(u => u.telegramId === telegramId)) { Toast.error('Ese Telegram ID ya está registrado'); return; }
+
+    const nuevo = {
+      id: generateId(), nombre, telegramId, username, usuarioId,
+      activo: true, creadoEn: new Date().toISOString(),
+    };
+    botUsers.push(nuevo);
+    Store.set('bot_users', botUsers);
+    close();
+    Toast.success(`✅ ${nombre} autorizado en el bot`);
+    renderBotUsers();
+  });
+}
+
+function toggleBotUser(id) {
+  const botUsers = getBotUsers();
+  const idx = botUsers.findIndex(u => u.id === id);
+  if (idx < 0) return;
+  botUsers[idx].activo = botUsers[idx].activo === false ? true : false;
+  Store.set('bot_users', botUsers);
+  Toast.info(`Usuario ${botUsers[idx].activo ? 'activado' : 'desactivado'} en el bot`);
+  renderBotUsers();
+}
+
+function eliminarBotUser(id) {
+  const botUsers = getBotUsers();
+  const u = botUsers.find(bu => bu.id === id);
+  confirmDialog(`¿Eliminar a ${u?.nombre} del bot? Ya no podrá crear solicitudes por Telegram.`, 'Eliminar acceso').then(ok => {
+    if (!ok) return;
+    Store.set('bot_users', botUsers.filter(bu => bu.id !== id));
+    Toast.success('Acceso al bot eliminado');
+    renderBotUsers();
+  });
+}
+</script>
+</body>
+</html>

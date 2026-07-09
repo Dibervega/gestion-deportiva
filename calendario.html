@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Calendario — Gestión Deportiva</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+  <style>
+    .cal-nav { display:flex; align-items:center; gap:var(--space-3); }
+    .cal-month-title { font-family:var(--font-display); font-size:var(--text-xl); font-weight:700; min-width:200px; text-align:center; }
+    .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+    .cal-header-cell { text-align:center; font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); padding:var(--space-2) 0; }
+    .cal-day { background:var(--bg-overlay); border:1px solid var(--border-subtle); border-radius:var(--radius-md); padding:6px 8px; min-height:80px; cursor:pointer; transition:all var(--transition-fast); position:relative; display:flex; flex-direction:column; }
+    .cal-day:hover { border-color:var(--border-default); background:var(--bg-hover); }
+    .cal-day.today { border-color:var(--primary-500); background:rgba(88,101,242,.08); }
+    .cal-day.selected { border-color:var(--primary-400); background:rgba(88,101,242,.15); box-shadow:0 0 0 2px rgba(88,101,242,.3); }
+    .cal-day.other-month { opacity:.35; cursor:default; }
+    .cal-day.has-events::after { content:''; position:absolute; top:6px; right:6px; width:6px; height:6px; border-radius:50%; background:var(--primary-500); }
+    .cal-day-num { font-size:.8rem; font-weight:700; color:var(--text-secondary); margin-bottom:4px; line-height:1; }
+    .cal-day.today .cal-day-num { color:var(--primary-400); font-size:.9rem; }
+    .cal-events { display:flex; flex-direction:column; gap:2px; flex:1; overflow:hidden; }
+    .cal-event-dot { display:flex; align-items:center; gap:4px; padding:2px 5px; border-radius:4px; font-size:.6rem; font-weight:600; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .cal-event-dot .dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    .cal-more { font-size:.6rem; color:var(--text-muted); padding:2px 5px; }
+    /* Panel lateral */
+    .day-panel { background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:var(--radius-xl); display:flex; flex-direction:column; min-height:400px; }
+    .day-panel-header { padding:var(--space-4) var(--space-5); border-bottom:1px solid var(--border-subtle); }
+    .day-panel-title { font-family:var(--font-display); font-size:var(--text-base); font-weight:600; }
+    .day-panel-body { padding:var(--space-4); flex:1; overflow-y:auto; }
+    .cal-event-item { background:var(--bg-overlay); border:1px solid var(--border-subtle); border-radius:var(--radius-lg); padding:var(--space-3) var(--space-4); margin-bottom:var(--space-3); cursor:pointer; transition:all var(--transition-fast); border-left:3px solid; }
+    .cal-event-item:hover { background:var(--bg-hover); transform:translateX(2px); }
+    .cal-event-type { font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); margin-bottom:4px; }
+    .cal-event-name { font-size:.875rem; font-weight:600; color:var(--text-primary); }
+    .cal-event-sub  { font-size:.75rem; color:var(--text-secondary); margin-top:3px; }
+    /* Leyenda */
+    .legend { display:flex; flex-wrap:wrap; gap:var(--space-3); }
+    .legend-item { display:flex; align-items:center; gap:6px; font-size:.75rem; color:var(--text-secondary); }
+    .legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    /* Por área */
+    .area-cal-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:var(--space-5); }
+    .area-cal-card { background:var(--bg-elevated); border:1px solid var(--border-subtle); border-radius:var(--radius-xl); overflow:hidden; }
+    .area-cal-header { padding:var(--space-3) var(--space-4); display:flex; align-items:center; gap:var(--space-2); }
+    .area-cal-mini-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:1px; padding:var(--space-2) var(--space-3) var(--space-3); }
+    .mini-cell { text-align:center; font-size:.55rem; padding:3px 2px; border-radius:3px; cursor:pointer; min-height:22px; position:relative; transition:background var(--transition-fast); }
+    .mini-cell:hover { background:var(--bg-hover); }
+    .mini-cell.today { background:rgba(88,101,242,.2); font-weight:700; color:var(--primary-300); }
+    .mini-cell.has-event { font-weight:700; }
+    .mini-event-bar { height:3px; border-radius:2px; margin-top:2px; }
+    .area-events-list { padding:0 var(--space-3) var(--space-3); display:flex; flex-direction:column; gap:var(--space-2); max-height:160px; overflow-y:auto; }
+    .area-event-row { display:flex; align-items:center; gap:var(--space-2); padding:var(--space-2) var(--space-3); background:var(--bg-overlay); border-radius:var(--radius-md); font-size:.75rem; cursor:pointer; }
+    .area-event-row:hover { background:var(--bg-hover); }
+    @media(max-width:768px) {
+      .cal-day { min-height:55px; padding:4px; }
+      .cal-event-dot { display:none; }
+      .cal-day.has-events::after { display:block; }
+    }
+  </style>
+</head>
+<body>
+<div id="app-loader"><div class="loader-logo">🏆 Gestión Deportiva</div><div class="loader-bar"><div class="loader-bar-fill"></div></div></div>
+<div id="toast-container"></div>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content page-enter">
+
+      <!-- View tabs -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--space-3)">
+        <div class="tabs" style="width:auto">
+          <button class="tab-btn active" onclick="setCalView('unified')">📅 Calendario Unificado</button>
+          <button class="tab-btn" onclick="setCalView('area')">🏢 Por Área</button>
+        </div>
+        <!-- Leyenda -->
+        <div class="legend" id="cal-legend"></div>
+      </div>
+
+      <!-- Vista Unificada -->
+      <div id="view-unified">
+        <div style="display:grid;grid-template-columns:1fr 280px;gap:var(--space-5);align-items:start">
+          <div>
+            <!-- Nav Mes -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)">
+              <div class="cal-nav">
+                <button class="btn btn-secondary btn-sm" onclick="changeMonth(-1)">◀</button>
+                <div class="cal-month-title" id="month-title"></div>
+                <button class="btn btn-secondary btn-sm" onclick="changeMonth(1)">▶</button>
+                <button class="btn btn-ghost btn-sm" onclick="goToday()">Hoy</button>
+              </div>
+              <div style="display:flex;gap:var(--space-2)">
+                <button class="btn btn-ghost btn-sm" id="filter-all" onclick="setAreaFilter('all')" style="border:1px solid var(--border-default)">Todas las áreas</button>
+              </div>
+            </div>
+            <!-- Grid días semana -->
+            <div class="cal-grid" id="cal-days-header">
+              <div class="cal-header-cell">Dom</div>
+              <div class="cal-header-cell">Lun</div>
+              <div class="cal-header-cell">Mar</div>
+              <div class="cal-header-cell">Mié</div>
+              <div class="cal-header-cell">Jue</div>
+              <div class="cal-header-cell">Vie</div>
+              <div class="cal-header-cell">Sáb</div>
+            </div>
+            <!-- Grid días -->
+            <div class="cal-grid" id="cal-grid" style="margin-top:2px"></div>
+          </div>
+          <!-- Panel lateral -->
+          <div class="day-panel" id="day-panel">
+            <div class="day-panel-header">
+              <div class="day-panel-title" id="day-panel-title">Selecciona un día</div>
+              <div style="font-size:.75rem;color:var(--text-muted);margin-top:4px" id="day-panel-count"></div>
+            </div>
+            <div class="day-panel-body" id="day-panel-body">
+              <div class="empty-state" style="padding:var(--space-8) var(--space-4)">
+                <div class="empty-state-icon">📅</div>
+                <div class="empty-state-desc">Haz clic en un día para ver sus eventos</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Próximos eventos (lista) -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📋 Próximas Entregas (30 días)</div>
+            <div style="font-size:.75rem;color:var(--text-muted)" id="upcoming-count"></div>
+          </div>
+          <div class="card-body" style="padding:0">
+            <div class="table-wrapper" style="border:none;border-radius:0">
+              <table class="table">
+                <thead><tr><th>Fecha</th><th>Servicio</th><th>Proyecto</th><th>Área</th><th>Responsable</th><th>Estado</th><th>Urgencia</th></tr></thead>
+                <tbody id="upcoming-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vista Por Área -->
+      <div id="view-area" style="display:none">
+        <div class="area-cal-grid" id="area-cals"></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/email.js"></script>
+<script src="js/solicitudes.js"></script>
+<script src="js/shared.js"></script>
+<script>
+let currentYear  = new Date().getFullYear();
+let currentMonth = new Date().getMonth();
+let selectedDay  = null;
+let calView      = 'unified';
+let areaFilter   = 'all';
+let allEvents    = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initPage('calendario', { title: 'Calendario', subtitle: 'Fechas de entrega y eventos por área' })) return;
+  buildLegend();
+  buildAllEvents();
+  renderUnifiedCalendar();
+  renderUpcoming();
+  renderAreaCalendars();
+});
+
+// ── Colores por área ──────────────────────────────────────────
+function getAreaColor(aId) {
+  const a = getArea(aId);
+  return a.color || '#5865f2';
+}
+
+// ── Construir eventos desde datos ─────────────────────────────
+function buildAllEvents() {
+  const soles = Store.get('solicitudes') || [];
+  allEvents = [];
+
+  soles.forEach(sol => {
+    const areas = Array.isArray(sol.areas) ? sol.areas : [sol.area].filter(Boolean);
+
+    // Evento: fecha del evento principal
+    if (sol.fechaEvento) {
+      allEvents.push({
+        id:     sol.id + '_evt',
+        fecha:  sol.fechaEvento,
+        tipo:   'evento',
+        nombre: sol.titulo,
+        sub:    `📌 ${sol.cliente}`,
+        areas,
+        color:  '#5865f2',
+        solId:  sol.id,
+        ticket: sol.ticketId,
+        estado: sol.estado,
+      });
+    }
+
+    // Cierre de evento
+    if (sol.cierreEvento) {
+      allEvents.push({
+        id:     sol.id + '_cierre',
+        fecha:  sol.cierreEvento.creadoEn?.split('T')[0],
+        tipo:   'cierre',
+        nombre: `Cierre: ${sol.titulo}`,
+        sub:    sol.cierreEvento.numeroReferencia || '',
+        areas,
+        color:  '#10b981',
+        solId:  sol.id,
+        ticket: sol.ticketId,
+      });
+    }
+
+    // Servicios: fecha de entrega
+    (sol.servicios || []).forEach(srv => {
+      if (!srv.fechaEntrega) return;
+      const a = getArea(srv.area);
+      const sem = semaforoColor(srv.fechaEntrega);
+      allEvents.push({
+        id:     srv.id + '_srv',
+        fecha:  srv.fechaEntrega,
+        tipo:   'servicio',
+        nombre: srv.nombre,
+        sub:    `${a.emoji} ${a.nombre} · ${sol.titulo}`,
+        areas:  [srv.area],
+        color:  a.color || '#5865f2',
+        areaId: srv.area,
+        solId:  sol.id,
+        ticket: sol.ticketId,
+        estado: srv.estado,
+        sem,
+        responsable: srv.responsable,
+      });
+    });
+  });
+}
+
+function getEventsForDay(dateStr, filterArea = 'all') {
+  return allEvents.filter(e => {
+    if (!e.fecha) return false;
+    if (e.fecha !== dateStr) return false;
+    if (filterArea !== 'all') {
+      return (e.areas || [e.areaId]).includes(filterArea);
+    }
+    return true;
+  });
+}
+
+function getEventsForMonth(year, month, filterArea = 'all') {
+  const prefix = `${year}-${String(month+1).padStart(2,'0')}`;
+  return allEvents.filter(e => {
+    if (!e.fecha || !e.fecha.startsWith(prefix)) return false;
+    if (filterArea !== 'all') return (e.areas || [e.areaId]).includes(filterArea);
+    return true;
+  });
+}
+
+// ── Leyenda ───────────────────────────────────────────────────
+function buildLegend() {
+  const cont = document.getElementById('cal-legend');
+  if (!cont) return;
+  const areas = getAreas().filter(a => a.activo);
+  cont.innerHTML = [
+    `<div class="legend-item"><div class="legend-dot" style="background:#5865f2"></div> Eventos</div>`,
+    `<div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Cierres</div>`,
+    ...areas.map(a => `<div class="legend-item"><div class="legend-dot" style="background:${a.color||'#5865f2'}"></div> ${a.emoji} ${a.nombre}</div>`),
+  ].join('');
+}
+
+// ── Calendario Unificado ──────────────────────────────────────
+function setCalView(view) {
+  calView = view;
+  document.getElementById('view-unified').style.display = view === 'unified' ? 'flex' : 'none';
+  document.getElementById('view-area').style.display     = view === 'area'     ? 'block'  : 'none';
+  document.querySelectorAll('.tabs .tab-btn').forEach((b,i) => b.classList.toggle('active', i === (view==='unified'?0:1)));
+  if (view === 'unified') renderUnifiedCalendar();
+  else renderAreaCalendars();
+}
+
+// Forzar flex en view-unified
+document.getElementById('view-unified').style.display = 'flex';
+document.getElementById('view-unified').style.flexDirection = 'column';
+document.getElementById('view-unified').style.gap = 'var(--space-5)';
+
+function changeMonth(dir) { currentMonth += dir; if(currentMonth>11){currentMonth=0;currentYear++;} if(currentMonth<0){currentMonth=11;currentYear--;} renderUnifiedCalendar(); }
+function goToday() { currentYear=new Date().getFullYear(); currentMonth=new Date().getMonth(); renderUnifiedCalendar(); }
+function setAreaFilter(aId) { areaFilter=aId; renderUnifiedCalendar(); renderUpcoming(); }
+
+function renderUnifiedCalendar() {
+  const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('month-title').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+
+  const today    = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+  const daysInPrev  = new Date(currentYear, currentMonth, 0).getDate();
+
+  const grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+
+  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+
+  for (let i = 0; i < totalCells; i++) {
+    let dayNum, dateStr, isOtherMonth = false;
+    if (i < firstDay) {
+      dayNum = daysInPrev - firstDay + i + 1;
+      const m = currentMonth === 0 ? 11 : currentMonth - 1;
+      const y = currentMonth === 0 ? currentYear - 1 : currentYear;
+      dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+      isOtherMonth = true;
+    } else if (i >= firstDay + daysInMonth) {
+      dayNum = i - firstDay - daysInMonth + 1;
+      const m = currentMonth === 11 ? 0 : currentMonth + 1;
+      const y = currentMonth === 11 ? currentYear + 1 : currentYear;
+      dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+      isOtherMonth = true;
+    } else {
+      dayNum = i - firstDay + 1;
+      dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+    }
+
+    const events   = getEventsForDay(dateStr, areaFilter);
+    const isToday  = dateStr === todayStr;
+    const isSel    = dateStr === selectedDay;
+
+    const cell = document.createElement('div');
+    cell.className = `cal-day${isOtherMonth?' other-month':''}${isToday?' today':''}${isSel?' selected':''}${events.length?' has-events':''}`;
+    cell.dataset.date = dateStr;
+
+    const shown = events.slice(0, 3);
+    const more  = events.length - 3;
+
+    cell.innerHTML = `
+      <div class="cal-day-num">${dayNum}</div>
+      <div class="cal-events">
+        ${shown.map(e => `
+          <div class="cal-event-dot" style="background:${e.color}22;color:${e.color}">
+            <div class="dot" style="background:${e.sem ? semColorToHex(e.sem.cls) : e.color}${e.sem&&e.sem.cls==='semaforo-rojo'?';animation:pulse 1.5s infinite':''}"></div>
+            <span style="overflow:hidden;text-overflow:ellipsis">${escHtml(e.nombre)}</span>
+          </div>`).join('')}
+        ${more > 0 ? `<div class="cal-more">+${more} más</div>` : ''}
+      </div>
+    `;
+
+    if (!isOtherMonth) {
+      cell.addEventListener('click', () => selectDay(dateStr));
+    }
+    grid.appendChild(cell);
+  }
+}
+
+function semColorToHex(cls) {
+  return { 'semaforo-rojo':'#f43f5e', 'semaforo-naranja':'#fb923c', 'semaforo-amarillo':'#fbbf24', 'semaforo-verde':'#10b981', 'semaforo-none':'#475569' }[cls] || '#5865f2';
+}
+
+function selectDay(dateStr) {
+  selectedDay = dateStr;
+  // Actualizar clases
+  document.querySelectorAll('.cal-day').forEach(c => {
+    c.classList.toggle('selected', c.dataset.date === dateStr);
+  });
+  // Render panel
+  const events = getEventsForDay(dateStr, areaFilter);
+  const d = new Date(dateStr + 'T12:00:00');
+  const opts = { weekday:'long', day:'numeric', month:'long' };
+  document.getElementById('day-panel-title').textContent = d.toLocaleDateString('es-CO', opts);
+  document.getElementById('day-panel-count').textContent = `${events.length} evento${events.length!==1?'s':''}`;
+
+  const body = document.getElementById('day-panel-body');
+  if (!events.length) {
+    body.innerHTML = `<div class="empty-state" style="padding:var(--space-8) var(--space-4)"><div class="empty-state-icon">😊</div><div class="empty-state-desc">Sin eventos para este día</div></div>`;
+    return;
+  }
+  body.innerHTML = events.map(e => {
+    const tipoLabel = { evento:'🗓️ Evento', servicio:'📦 Entrega de Servicio', cierre:'🔒 Cierre de Evento' }[e.tipo] || e.tipo;
+    const semBadge  = e.sem ? `<span class="semaforo-pill ${e.sem.cls}" style="font-size:.65rem">${e.sem.emoji} ${e.sem.label}</span>` : '';
+    const resp = e.responsable ? getUserById(e.responsable) : null;
+    return `<div class="cal-event-item" style="border-left-color:${e.color}" onclick="window.location.href='detalle-proyecto.html?id=${e.solId}'">
+      <div class="cal-event-type">${tipoLabel}</div>
+      <div class="cal-event-name">${escHtml(e.nombre)}</div>
+      <div class="cal-event-sub">${escHtml(e.sub)}</div>
+      ${semBadge}
+      ${resp ? `<div style="font-size:.7rem;color:var(--text-muted);margin-top:4px">👤 ${escHtml(resp.nombre)}</div>` : ''}
+      ${e.ticket ? `<div style="font-size:.65rem;font-family:var(--font-mono);color:var(--primary-400);margin-top:4px">${e.ticket}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Próximas Entregas ─────────────────────────────────────────
+function renderUpcoming() {
+  const tbody = document.getElementById('upcoming-tbody');
+  const countEl = document.getElementById('upcoming-count');
+  if (!tbody) return;
+
+  const today   = new Date();
+  const in30    = new Date(today.getTime() + 30 * 86400000);
+  const todayStr = today.toISOString().split('T')[0];
+  const in30Str  = in30.toISOString().split('T')[0];
+
+  const upcoming = allEvents
+    .filter(e => e.tipo === 'servicio' && e.fecha >= todayStr && e.fecha <= in30Str)
+    .filter(e => areaFilter === 'all' || (e.areas||[e.areaId]).includes(areaFilter))
+    .sort((a,b) => a.fecha.localeCompare(b.fecha));
+
+  if (countEl) countEl.textContent = `${upcoming.length} entregas`;
+
+  if (!upcoming.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">Sin entregas en los próximos 30 días 🎉</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = upcoming.map(e => {
+    const a = getArea(e.areaId);
+    const resp = e.responsable ? getUserById(e.responsable) : null;
+    const estSrv = getEstadoSrv(e.estado || 'pendiente');
+    const sem = e.sem || semaforoColor(e.fecha);
+    return `<tr onclick="window.location.href='detalle-proyecto.html?id=${e.solId}'" style="cursor:pointer">
+      <td style="font-size:var(--text-xs);white-space:nowrap">${Fmt.date(e.fecha)}</td>
+      <td><div style="font-weight:600;font-size:var(--text-sm)">${escHtml(e.nombre)}</div></td>
+      <td><div class="col-title-wrap"><div class="title" style="max-width:150px">${escHtml(e.sub.split('·')[1]?.trim()||'')}</div><div class="sub">${escHtml(e.ticket||'')}</div></div></td>
+      <td><span class="badge badge-area">${a.emoji} ${a.nombre}</span></td>
+      <td>${resp?`<div style="display:flex;align-items:center;gap:5px"><div class="avatar avatar-sm" style="background:${avatarColor(resp.nombre)}">${Fmt.initials(resp.nombre)}</div><span style="font-size:var(--text-xs)">${escHtml(resp.nombre)}</span></div>`:'—'}</td>
+      <td><span class="badge ${estSrv.badge}">${estSrv.emoji} ${estSrv.label}</span></td>
+      <td><span class="semaforo-pill ${sem.cls}">${sem.emoji} ${sem.label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Vista Por Área ────────────────────────────────────────────
+function renderAreaCalendars() {
+  const cont = document.getElementById('area-cals');
+  if (!cont) return;
+  const areas = getAreas().filter(a => a.activo);
+  if (!areas.length) { cont.innerHTML = '<div class="empty-state"><div class="empty-state-title">Sin áreas configuradas</div></div>'; return; }
+
+  cont.innerHTML = areas.map(area => {
+    const areaEvents = allEvents.filter(e => e.tipo === 'servicio' && (e.areas||[e.areaId]).includes(area.id));
+    const today = new Date();
+    const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+    const firstDay    = new Date(currentYear, currentMonth, 1).getDay();
+
+    const eventDays = {};
+    areaEvents.forEach(e => {
+      if (e.fecha) {
+        const [y,m] = e.fecha.split('-').map(Number);
+        if (y === currentYear && m-1 === currentMonth) {
+          const d = parseInt(e.fecha.split('-')[2]);
+          if (!eventDays[d]) eventDays[d] = [];
+          eventDays[d].push(e);
+        }
+      }
+    });
+
+    // Próximos eventos de esta área
+    const upcoming = areaEvents
+      .filter(e => e.fecha && e.fecha >= today.toISOString().split('T')[0])
+      .sort((a,b) => a.fecha.localeCompare(b.fecha))
+      .slice(0, 5);
+
+    const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+    let cells = '';
+    // Header días
+    cells += ['D','L','M','M','J','V','S'].map(d=>`<div style="font-size:.5rem;text-align:center;color:var(--text-muted);font-weight:700">${d}</div>`).join('');
+    for (let i = 0; i < totalCells; i++) {
+      let dayNum = i < firstDay ? '' : i - firstDay + 1 > daysInMonth ? '' : i - firstDay + 1;
+      const isToday = dayNum && new Date(currentYear, currentMonth, dayNum).toDateString() === today.toDateString();
+      const evts = dayNum ? eventDays[dayNum] : null;
+      const dateStr = dayNum ? `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}` : '';
+      cells += `<div class="mini-cell${isToday?' today':''}${evts?' has-event':''}" style="color:${evts?area.color||'#5865f2':'inherit'}" ${dayNum&&evts?`onclick="selectDayArea('${dateStr}','${area.id}')"`:''}">
+        ${dayNum||''}
+        ${evts?`<div class="mini-event-bar" style="background:${area.color||'#5865f2'}"></div>`:''}
+      </div>`;
+    }
+
+    return `
+    <div class="area-cal-card">
+      <div class="area-cal-header" style="border-bottom:3px solid ${area.color||'var(--primary-500)'}">
+        <div style="width:10px;height:10px;border-radius:50%;background:${area.color||'var(--primary-500)'};flex-shrink:0"></div>
+        <span style="font-size:1.1rem">${area.emoji}</span>
+        <span style="font-weight:700;font-size:var(--text-sm);color:var(--text-primary)">${area.nombre}</span>
+        <span class="badge badge-pending" style="margin-left:auto;font-size:.6rem">${areaEvents.length} servicio${areaEvents.length!==1?'s':''}</span>
+      </div>
+      <div class="area-cal-mini-grid">${cells}</div>
+      <div style="padding:var(--space-2) var(--space-3);font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);border-top:1px solid var(--border-subtle)">Próximas entregas</div>
+      <div class="area-events-list">
+        ${upcoming.length ? upcoming.map(e => {
+          const sem = e.sem || semaforoColor(e.fecha);
+          return `<div class="area-event-row" onclick="window.location.href='detalle-proyecto.html?id=${e.solId}'">
+            <span class="semaforo-pill ${sem.cls}" style="font-size:.6rem;padding:2px 6px">${sem.emoji}</span>
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(e.nombre)}</span>
+            <span style="color:var(--text-muted);font-size:.65rem;white-space:nowrap">${Fmt.date(e.fecha)}</span>
+          </div>`;
+        }).join('') : '<div style="font-size:.75rem;color:var(--text-muted);padding:8px 4px">Sin entregas próximas 🎉</div>'}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectDayArea(dateStr, areaId) {
+  setCalView('unified');
+  areaFilter = areaId;
+  const d = new Date(dateStr + 'T12:00:00');
+  currentYear  = d.getFullYear();
+  currentMonth = d.getMonth();
+  selectedDay  = dateStr;
+  renderUnifiedCalendar();
+  setTimeout(() => selectDay(dateStr), 50);
+}
+</script>
+</body>
+</html>

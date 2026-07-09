@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Solicitudes — Gestión Deportiva</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+</head>
+<body>
+<div id="app-loader"><div class="loader-logo">🏆 Gestión Deportiva</div><div class="loader-bar"><div class="loader-bar-fill"></div></div></div>
+<div id="toast-container"></div>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content page-enter">
+
+      <!-- Filtros -->
+      <div class="card">
+        <div class="card-body" style="padding:var(--space-4) var(--space-5)">
+          <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;align-items:center">
+            <div class="search-bar" style="flex:1;min-width:180px">
+              <span class="search-bar-icon">🔍</span>
+              <input class="form-control" type="text" id="filter-buscar" placeholder="Buscar ticket, proyecto o cliente..." />
+            </div>
+            <select class="form-control" id="filter-area" style="width:auto;min-width:130px">
+              <option value="all">🏢 Todas las áreas</option>
+            </select>
+            <select class="form-control" id="filter-estado" style="width:auto;min-width:130px">
+              <option value="all">📌 Todos los estados</option>
+              <option value="pendiente">⏳ Pendiente</option>
+              <option value="en_proceso">🔄 En Proceso</option>
+              <option value="revision">👁️ En Revisión</option>
+              <option value="aprobado">✅ Aprobado</option>
+              <option value="completado">🎯 Completado</option>
+              <option value="cancelado">❌ Cancelado</option>
+            </select>
+            <select class="form-control" id="filter-prioridad" style="width:auto;min-width:120px">
+              <option value="all">🔵 Prioridad</option>
+              <option value="alta">🔴 Alta</option>
+              <option value="media">🟡 Media</option>
+              <option value="baja">🟢 Baja</option>
+            </select>
+            <select class="form-control" id="filter-orden" style="width:auto;min-width:130px">
+              <option value="">⚡ Por urgencia</option>
+              <option value="fecha_asc">📅 Fecha evento ↑</option>
+              <option value="fecha_desc">📅 Fecha evento ↓</option>
+              <option value="monto">💰 Por monto</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="resetFiltros()">✕ Limpiar</button>
+          </div>
+          <!-- Pills -->
+          <div class="filter-bar" style="margin-top:var(--space-3)" id="state-pills">
+            <span class="filter-chip active" data-estado="all">Todos</span>
+            <span class="filter-chip" data-estado="pendiente">⏳ Pendiente</span>
+            <span class="filter-chip" data-estado="en_proceso">🔄 En Proceso</span>
+            <span class="filter-chip" data-estado="revision">👁️ Revisión</span>
+            <span class="filter-chip" data-estado="aprobado">✅ Aprobado</span>
+            <span class="filter-chip" data-estado="completado">🎯 Completado</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- View toggle -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap">
+        <div style="color:var(--text-muted);font-size:var(--text-sm)" id="result-count"></div>
+        <div class="tabs" style="width:auto">
+          <button class="tab-btn active" id="view-cards" onclick="setView('cards')">🃏 Tarjetas</button>
+          <button class="tab-btn" id="view-table" onclick="setView('table')">📋 Tabla</button>
+        </div>
+      </div>
+
+      <!-- Cards -->
+      <div id="cards-view" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:var(--space-4)"></div>
+
+      <!-- Tabla -->
+      <div id="table-view" style="display:none">
+        <div class="table-wrapper">
+          <table class="table table-clickable">
+            <thead>
+              <tr>
+                <th>Ticket</th>
+                <th>Proyecto / Cliente</th>
+                <th>Áreas</th>
+                <th>Estado</th>
+                <th>Prio.</th>
+                <th class="hide-mobile">Servicios</th>
+                <th class="hide-mobile">Próx. Entrega</th>
+                <th>Valor</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="sol-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/email.js"></script>
+<script src="js/solicitudes.js"></script>
+<script src="js/shared.js"></script>
+<script>
+let currentView = 'cards';
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initPage('solicitudes', {
+    title: 'Solicitudes',
+    actions: `<button class="btn btn-primary btn-sm" onclick="openNuevaSolicitudModal()">+ Nueva</button>`,
+  })) return;
+
+  // Llenar select de áreas
+  const selArea = document.getElementById('filter-area');
+  getAreas().filter(a=>a.activo).forEach(a => {
+    selArea.innerHTML += `<option value="${a.id}">${a.emoji} ${a.nombre}</option>`;
+  });
+
+  // Filtros
+  ['filter-buscar','filter-area','filter-estado','filter-prioridad','filter-orden'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input',  applyFiltros);
+    document.getElementById(id)?.addEventListener('change', applyFiltros);
+  });
+
+  // Pills estado
+  document.querySelectorAll('#state-pills .filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#state-pills .filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      document.getElementById('filter-estado').value = chip.dataset.estado;
+      applyFiltros();
+    });
+  });
+
+  // URL params
+  const params = new URLSearchParams(location.search);
+  if (params.get('area'))       document.getElementById('filter-area').value = params.get('area');
+  if (params.get('action') === 'new') setTimeout(() => openNuevaSolicitudModal(), 400);
+
+  applyFiltros();
+});
+
+function applyFiltros() {
+  const f = {
+    buscar:    document.getElementById('filter-buscar')?.value || '',
+    area:      document.getElementById('filter-area')?.value || 'all',
+    estado:    document.getElementById('filter-estado')?.value || 'all',
+    prioridad: document.getElementById('filter-prioridad')?.value || 'all',
+    orden:     document.getElementById('filter-orden')?.value || '',
+  };
+  const data = Solicitudes.getAll(f);
+  document.getElementById('result-count').textContent = `${data.length} solicitudes`;
+  renderCardsView(data);
+  renderTableView(data);
+}
+
+function resetFiltros() {
+  ['filter-buscar','filter-area','filter-estado','filter-prioridad','filter-orden'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = el.tagName==='SELECT' ? 'all' : '';
+  });
+  document.querySelectorAll('#state-pills .filter-chip').forEach((c,i) => c.classList.toggle('active', i===0));
+  applyFiltros();
+}
+
+function setView(view) {
+  currentView = view;
+  document.getElementById('cards-view').style.display = view==='cards' ? 'grid' : 'none';
+  document.getElementById('table-view').style.display = view==='table' ? 'block' : 'none';
+  document.getElementById('view-cards').classList.toggle('active', view==='cards');
+  document.getElementById('view-table').classList.toggle('active', view==='table');
+}
+
+function renderCardsView(data) {
+  const cont = document.getElementById('cards-view');
+  if (!cont) return;
+  if (!data.length) {
+    cont.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-state-icon">📭</div>
+      <div class="empty-state-title">No hay solicitudes</div>
+      <div class="empty-state-desc">Crea una nueva o ajusta los filtros</div>
+      <button class="btn btn-primary" style="margin-top:16px" onclick="openNuevaSolicitudModal()">+ Nueva Solicitud</button>
+    </div>`;
+    return;
+  }
+  cont.innerHTML = data.map((s,i) => {
+    const est   = getEstado(s.estado);
+    const prio  = getPrioridad(s.prioridad);
+    const asig  = getUserById(s.asignadoA);
+    const proxEn = proximaEntrega(s);
+    const sem   = semaforoColor(proxEn);
+    const areas = Array.isArray(s.areas) ? s.areas : [s.area].filter(Boolean);
+    const pendientes = (s.servicios||[]).filter(sv=>sv.estado!=='entregado').length;
+    const total      = (s.servicios||[]).length;
+    const fin = canSeeFinancials() ? Financiero.calcularResumen(s) : null;
+
+    return `<div class="request-card animate-fade-in" style="animation-delay:${i*30}ms" onclick="window.location.href='detalle-proyecto.html?id=${s.id}'">
+      <div class="request-card-header">
+        <div class="min-w-0">
+          <div class="request-id">${escHtml(s.ticketId)}</div>
+          <div class="request-title truncate">${escHtml(s.titulo)}</div>
+          <div class="request-client">👤 ${escHtml(s.cliente)}</div>
+        </div>
+        <span class="badge ${prio.badge}" style="flex-shrink:0">${prio.emoji}</span>
+      </div>
+      <div class="request-meta">
+        ${areas.slice(0,2).map(aId => { const a=getArea(aId); return `<span class="badge badge-area">${a.emoji} ${a.nombre}</span>`; }).join('')}
+        ${areas.length>2 ? `<span class="badge badge-pending">+${areas.length-2}</span>` : ''}
+        <span class="badge ${est.badge}">${est.label}</span>
+      </div>
+      ${total ? `<div style="display:flex;align-items:center;gap:var(--space-3);font-size:var(--text-xs);color:var(--text-muted)">
+        <span>📦 ${pendientes}/${total} servicios pendientes</span>
+        ${proxEn ? `<span class="semaforo-pill ${sem.cls}">${sem.emoji} ${sem.label}</span>` : ''}
+      </div>` : ''}
+      <div class="request-card-footer">
+        <div>
+          ${fin ? `<div class="money" style="font-size:var(--text-base);font-weight:700">${Fmt.currency(fin.valorCotizado)}</div>` : `<div style="font-size:var(--text-xs);color:var(--text-muted)">${total} servicio(s)</div>`}
+          ${fin ? `<div style="font-size:var(--text-xs);color:var(--text-muted)">${getEstadoPago(s.financiero?.estadoPago||'sin_pago').label}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          ${asig ? `<div class="avatar avatar-sm" style="background:${avatarColor(asig.nombre)}" data-tooltip="${escHtml(asig.nombre)}">${Fmt.initials(asig.nombre)}</div>` : ''}
+          <div class="text-right">
+            <div style="font-size:var(--text-xs);color:var(--text-muted)">${s.fechaEvento ? Fmt.date(s.fechaEvento) : 'Sin fecha'}</div>
+            <div style="font-size:.65rem;color:var(--text-muted)">${Fmt.relative(s.createdAt)}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTableView(data) {
+  const tbody = document.getElementById('sol-tbody');
+  if (!tbody) return;
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted)">Sin resultados</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = data.map(s => {
+    const est  = getEstado(s.estado);
+    const prio = getPrioridad(s.prioridad);
+    const areas = Array.isArray(s.areas) ? s.areas : [s.area].filter(Boolean);
+    const proxEn = proximaEntrega(s);
+    const sem   = semaforoColor(proxEn);
+    const pendientes = (s.servicios||[]).filter(sv=>sv.estado!=='entregado').length;
+    const total      = (s.servicios||[]).length;
+    const fin = canSeeFinancials() ? Financiero.calcularResumen(s) : null;
+    return `<tr onclick="window.location.href='detalle-proyecto.html?id=${s.id}'">
+      <td><span class="col-ticket">${escHtml(s.ticketId)}</span></td>
+      <td><div class="col-title-wrap"><div class="title">${escHtml(s.titulo)}</div><div class="sub">${escHtml(s.cliente)}</div></div></td>
+      <td><div class="col-areas">${areas.slice(0,2).map(aId => { const a=getArea(aId); return `<span class="badge badge-area">${a.emoji} ${a.nombre}</span>`; }).join('')}${areas.length>2 ? `<span class="badge badge-pending">+${areas.length-2}</span>` : ''}</div></td>
+      <td><span class="badge ${est.badge}">${est.label}</span></td>
+      <td><span class="badge ${prio.badge}">${prio.emoji}</span></td>
+      <td class="hide-mobile"><span style="font-size:var(--text-xs);color:var(--text-muted)">${pendientes}/${total}</span></td>
+      <td class="hide-mobile">${proxEn ? `<span class="semaforo-pill ${sem.cls}">${sem.emoji} ${sem.label}</span>` : '—'}</td>
+      <td class="money">${fin ? Fmt.currency(fin.valorCotizado) : '<span style="color:var(--text-muted)">—</span>'}</td>
+      <td onclick="event.stopPropagation()"><div style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="window.location.href='detalle-proyecto.html?id=${s.id}'" data-tooltip="Ver">👁️</button>
+        ${Auth.can('status') ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="openCambioEstado('${s.id}')" data-tooltip="Estado">🔄</button>` : ''}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Modal Nueva Solicitud ──────────────────────────────────
+function openNuevaSolicitudModal() {
+  const users = Store.get('users') || [];
+  const areas = getAreas().filter(a => a.activo);
+
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">📋 Nueva Solicitud</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Título / Nombre del Proyecto <span class="required">*</span></label>
+            <input class="form-control" id="new-titulo" placeholder="Ej: Maratón Ciudad 2026" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cliente / Organización <span class="required">*</span></label>
+            <input class="form-control" id="new-cliente" placeholder="Nombre del cliente" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Áreas Responsables <span class="required">*</span> <span style="font-weight:400;color:var(--text-muted)">(puede seleccionar varias)</span></label>
+          <div class="areas-selector" id="areas-selector">
+            ${areas.map(a => `
+              <div class="area-chip" data-area="${a.id}" onclick="toggleAreaChip(this)">
+                ${a.emoji} ${a.nombre}
+              </div>
+            `).join('')}
+          </div>
+          <input type="hidden" id="new-areas" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Prioridad</label>
+            <select class="form-control" id="new-prioridad">
+              <option value="alta">🔴 Alta</option>
+              <option value="media" selected>🟡 Media</option>
+              <option value="baja">🟢 Baja</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha del Evento</label>
+            <input class="form-control" type="date" id="new-fecha" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Asignar a</label>
+            <select class="form-control" id="new-asignado">
+              <option value="">Sin asignar</option>
+              ${users.filter(u=>u.activo).map(u => `<option value="${u.id}">${u.nombre}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contacto</label>
+            <input class="form-control" id="new-contacto" placeholder="Email o teléfono" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Descripción / Requerimientos</label>
+          <textarea class="form-control" id="new-desc" rows="3" placeholder="Describe los requerimientos del cliente..."></textarea>
+        </div>
+
+        ${canSeeFinancials() ? `
+        <div class="divider-label">💰 Información Financiera (Admin)</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Valor Cotizado</label>
+            <input class="form-control" type="number" id="new-valor" placeholder="0" min="0" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Anticipo Recibido</label>
+            <input class="form-control" type="number" id="new-anticipo" placeholder="0" min="0" />
+          </div>
+        </div>` : ''}
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-crear-sol">Crear Solicitud</button>
+    </div>
+  `, { size: 'lg' });
+
+  modal.querySelector('#btn-crear-sol').addEventListener('click', () => {
+    const titulo  = modal.querySelector('#new-titulo').value.trim();
+    const cliente = modal.querySelector('#new-cliente').value.trim();
+    const areas   = [...modal.querySelectorAll('.area-chip.selected')].map(c => c.dataset.area);
+    if (!titulo || !cliente)  { Toast.warning('Título y cliente son obligatorios'); return; }
+    if (!areas.length)        { Toast.warning('Selecciona al menos un área'); return; }
+    try {
+      const sol = Solicitudes.create({
+        titulo, cliente, areas,
+        prioridad:     modal.querySelector('#new-prioridad').value,
+        fechaEvento:   modal.querySelector('#new-fecha').value,
+        asignadoA:     modal.querySelector('#new-asignado').value || null,
+        descripcion:   modal.querySelector('#new-desc').value.trim(),
+        contacto:      modal.querySelector('#new-contacto').value.trim(),
+        valorCotizado: modal.querySelector('#new-valor')?.value || 0,
+        anticipo:      modal.querySelector('#new-anticipo')?.value || 0,
+      });
+      close();
+      Toast.success(`✅ ${sol.ticketId} creada`);
+      applyFiltros();
+    } catch(e) { Toast.error(e.message); }
+  });
+}
+
+function toggleAreaChip(el) {
+  el.classList.toggle('selected');
+}
+
+function openCambioEstado(id) {
+  const sol = Solicitudes.getById(id);
+  if (!sol) return;
+  const transiciones = {
+    pendiente:['en_proceso','cancelado'], en_proceso:['revision','cancelado','pendiente'],
+    revision:['aprobado','en_proceso','cancelado'], aprobado:['completado','en_proceso','cancelado'],
+    completado:[], cancelado:['pendiente'],
+  };
+  const opciones = transiciones[sol.estado] || [];
+  if (!opciones.length) { Toast.info('Sin transiciones disponibles'); return; }
+  const est = getEstado(sol.estado);
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">🔄 Cambiar Estado</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <p style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-4)">
+        <strong>${escHtml(sol.titulo)}</strong><br>
+        Estado actual: <span class="badge ${est.badge}">${est.label}</span>
+      </p>
+      <div class="form-group">
+        <label class="form-label">Nuevo Estado</label>
+        <select class="form-control" id="ns-estado">
+          <option value="">Seleccionar...</option>
+          ${opciones.map(e => { const es=getEstado(e); return `<option value="${e}">${es.emoji} ${es.label}</option>`; }).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="margin-top:var(--space-3)">
+        <label class="form-label">Observación</label>
+        <textarea class="form-control" id="ns-nota" rows="2" placeholder="Nota opcional..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-estado">Guardar</button>
+    </div>
+  `);
+  modal.querySelector('#btn-guardar-estado').addEventListener('click', () => {
+    const ns = modal.querySelector('#ns-estado').value;
+    const nota = modal.querySelector('#ns-nota').value.trim();
+    if (!ns) { Toast.warning('Selecciona un estado'); return; }
+    try { Solicitudes.cambiarEstado(id, ns, nota); close(); Toast.success('Estado actualizado'); applyFiltros(); }
+    catch(e) { Toast.error(e.message); }
+  });
+}
+</script>
+</body>
+</html>

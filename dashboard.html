@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Gestión Deportiva</title>
+  <meta name="description" content="Panel de control principal del sistema de gestión de servicios deportivos." />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div id="app-loader">
+  <div class="loader-logo">🏆 Gestión Deportiva</div>
+  <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+</div>
+
+<div id="toast-container"></div>
+
+<div class="app-shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <!-- Overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- Main -->
+  <div class="main-content">
+
+    <!-- Topbar -->
+    <header class="topbar" id="topbar"></header>
+
+    <!-- Page Content -->
+    <main class="page-content page-enter">
+
+      <!-- Welcome Banner -->
+      <div class="welcome-banner">
+        <div class="welcome-text">
+          <h2 id="welcome-msg">¡Buen día! 👋</h2>
+          <p>Aquí está el resumen de tu empresa hoy</p>
+        </div>
+        <div class="welcome-action">
+          <button class="btn btn-lg" style="background:rgba(255,255,255,0.2);color:white;border:1px solid rgba(255,255,255,0.3)"
+            onclick="window.location.href='solicitudes.html?action=new'">
+            + Crear Solicitud
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="grid-kpi" id="kpi-grid">
+        <!-- JS renderiza -->
+      </div>
+
+      <!-- Alertas -->
+      <div id="alertas-section" style="display:none">
+        <div class="card" style="border-color: rgba(245,158,11,0.3)">
+          <div class="card-header">
+            <div class="card-title" style="color:var(--warning-fg)">⚠️ Solicitudes Próximas a Vencer</div>
+          </div>
+          <div class="card-body" id="alertas-list"></div>
+        </div>
+      </div>
+
+      <!-- Charts + Activity -->
+      <div class="grid-main">
+
+        <!-- Charts Column -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+
+          <!-- Estado de Proyectos (Barras) -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📊 Proyectos por Estado</div>
+              <div class="tabs" style="min-width:180px">
+                <button class="tab-btn active" id="chart-tab-estado" onclick="switchChart('estado')">Estado</button>
+                <button class="tab-btn" id="chart-tab-area" onclick="switchChart('area')">Por Área</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="chart-container" style="height:260px">
+                <canvas id="chart-main"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Proyectos Recientes -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🕐 Solicitudes Recientes</div>
+              <a href="solicitudes.html" class="btn btn-ghost btn-sm">Ver todas →</a>
+            </div>
+            <div class="card-body" style="padding:0">
+              <div class="table-wrapper" style="border:none;border-radius:0">
+                <table class="table table-clickable">
+                  <thead>
+                    <tr>
+                      <th>Ticket</th>
+                      <th>Proyecto</th>
+                      <th>Área</th>
+                      <th>Estado</th>
+                      <th>Valor</th>
+                      <th>Evento</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recent-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sidebar Right -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+
+          <!-- Distribución por Área (Dona) -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🏅 Por Área</div>
+            </div>
+            <div class="card-body">
+              <div class="chart-container" style="height:220px">
+                <canvas id="chart-donut"></canvas>
+              </div>
+              <div id="areas-legend" style="margin-top:var(--space-4);display:flex;flex-direction:column;gap:var(--space-2)"></div>
+            </div>
+          </div>
+
+          <!-- Resumen Financiero -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">💰 Finanzas del Mes</div>
+              <a href="financiero.html" class="btn btn-ghost btn-sm">Detalle →</a>
+            </div>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
+              <div id="finance-summary-mini"></div>
+            </div>
+          </div>
+
+          <!-- Activity Feed -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">⚡ Actividad Reciente</div>
+            </div>
+            <div class="card-body" id="activity-feed"></div>
+          </div>
+
+          <!-- Accesos Rápidos -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🚀 Accesos Rápidos</div>
+            </div>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-2)">
+              <a href="proyectos-vigentes.html" class="btn btn-ghost btn-sm" style="justify-content:flex-start;gap:var(--space-2)">
+                🟢 Proyectos Vigentes
+              </a>
+              <a href="solicitudes.html?action=new" class="btn btn-ghost btn-sm" style="justify-content:flex-start;gap:var(--space-2)">
+                📋 Nueva Solicitud
+              </a>
+              <a href="financiero.html" class="btn btn-ghost btn-sm" style="justify-content:flex-start;gap:var(--space-2)">
+                💰 Panel Financiero
+              </a>
+              <a href="reportes.html" class="btn btn-ghost btn-sm" style="justify-content:flex-start;gap:var(--space-2)">
+                📈 Reportes
+              </a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/email.js"></script>
+<script src="js/solicitudes.js"></script>
+<script src="js/shared.js"></script>
+<script>
+// ── Dashboard Page Script ────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initPage('dashboard', {
+    title: 'Dashboard',
+    subtitle: (() => { const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }; return new Date().toLocaleDateString('es-CO', opts); })(),
+    actions: `<button class="btn btn-primary btn-sm" onclick="window.location.href='solicitudes.html'">+ Nueva Solicitud</button>`
+  })) return;
+
+  const user = Auth.getCurrentUser();
+  renderWelcome(user);
+  renderKPIs();
+  renderAlertas();
+  renderRecentTable();
+  renderCharts();
+  renderFinanceMini();
+  renderActivityFeed();
+  renderNavBadge();
+});
+
+
+
+function renderWelcome(user) {
+  const el = document.getElementById('welcome-msg');
+  const h  = new Date().getHours();
+  const saludo = h < 12 ? '¡Buenos días' : h < 18 ? '¡Buenas tardes' : '¡Buenas noches';
+  if (el) el.textContent = `${saludo}, ${user.nombre.split(' ')[0]}! 👋`;
+}
+
+function renderNavBadge() {
+  updateNavBadge();
+}
+
+function renderKPIs() {
+  const grid  = document.getElementById('kpi-grid');
+  const stats = Solicitudes.getStats();
+  const gRes  = Financiero.getResumenGlobal();
+  if (!grid) return;
+
+  const kpis = [
+    {
+      label: 'Solicitudes Activas',
+      value: stats.activas,
+      icon: '📋',
+      cls: 'kpi-primary',
+      valueCls: 'kpi-primary-text',
+      change: `${stats.total} en total`,
+    },
+    {
+      label: 'Completadas esta semana',
+      value: stats.completadaSemana,
+      icon: '✅',
+      cls: 'kpi-success',
+      valueCls: 'kpi-success-text',
+      change: `🎯 ${stats.completadaSemana} proyectos`,
+    },
+    {
+      label: 'Solicitudes Urgentes',
+      value: stats.urgentes,
+      icon: '🔴',
+      cls: 'kpi-danger',
+      valueCls: stats.urgentes > 0 ? 'kpi-danger-text' : '',
+      change: `Prioridad Alta`,
+    },
+    {
+      label: 'Próximas a Vencer',
+      value: stats.vencen,
+      icon: '⏰',
+      cls: 'kpi-warning',
+      valueCls: stats.vencen > 0 ? 'kpi-warning-text' : '',
+      change: 'Esta semana',
+    },
+    {
+      label: 'Monto Activo',
+      value: Fmt.currency(stats.montoActivo, true),
+      icon: '💰',
+      cls: 'kpi-cyan',
+      valueCls: '',
+      change: 'En proyectos vigentes',
+    },
+    {
+      label: 'Por Cobrar',
+      value: Fmt.currency(gRes.pendienteCobro, true),
+      icon: '📤',
+      cls: 'kpi-violet',
+      valueCls: '',
+      change: 'Saldo pendiente',
+    },
+  ];
+
+  grid.innerHTML = kpis.map((k, i) => `
+    <div class="kpi-card ${k.cls}" style="animation-delay:${i*60}ms" class="animate-fade-in">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value ${k.valueCls}">${k.value}</div>
+      <div class="kpi-change">${k.change}</div>
+      <div class="kpi-icon ${k.cls}">${k.icon}</div>
+    </div>
+  `).join('');
+}
+
+function renderAlertas() {
+  const stats = Solicitudes.getStats();
+  const section = document.getElementById('alertas-section');
+  const list    = document.getElementById('alertas-list');
+  if (!section || !list) return;
+
+  const vencen = Solicitudes.getAll().filter(s => {
+    if (!s.fechaEvento || ['completado','cancelado'].includes(s.estado)) return false;
+    const diff = new Date(s.fechaEvento) - new Date();
+    return diff > 0 && diff < 7 * 86400000;
+  });
+
+  if (!vencen.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  list.innerHTML = vencen.map(s => {
+    const dias = Math.ceil((new Date(s.fechaEvento) - new Date()) / 86400000);
+    const area = getArea(s.area);
+    return `
+      <div class="activity-item" onclick="window.location.href='detalle-proyecto.html?id=${s.id}'" style="cursor:pointer">
+        <div class="activity-icon" style="background:var(--warning-bg)">${area.emoji}</div>
+        <div class="activity-body">
+          <div class="activity-text">
+            <strong>${escHtml(s.ticketId)}</strong> — ${escHtml(s.titulo)}
+            <span class="badge badge-high" style="margin-left:8px">Vence en ${dias}d</span>
+          </div>
+          <div class="activity-time">${escHtml(s.cliente)} · ${area.nombre}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderRecentTable() {
+  const tbody = document.getElementById('recent-tbody');
+  if (!tbody) return;
+  const data = Solicitudes.getAll().slice(0, 8);
+
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">No hay solicitudes todavía</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.map(s => {
+    const est   = getEstado(s.estado);
+    return `
+      <tr onclick="window.location.href='detalle-proyecto.html?id=${s.id}'">
+        <td><span style="font-family:var(--font-mono);color:var(--primary-400);font-size:var(--text-xs);font-weight:700">${escHtml(s.ticketId)}</span></td>
+        <td>
+          <div style="font-weight:500;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(s.titulo)}</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted)">${escHtml(s.cliente)}</div>
+        </td>
+        <td>${renderAreaBadges(s.areas || [s.area])}</td>
+        <td><span class="badge ${est.badge}">${est.label}</span></td>
+        <td class="money">${Fmt.currency(s.financiero?.valorCotizado || 0, true)}</td>
+        <td style="font-size:var(--text-xs);color:var(--text-secondary)">${s.fechaEvento ? Fmt.date(s.fechaEvento) : '—'}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+let mainChart = null, donutChart = null;
+
+function renderCharts() {
+  renderMainChart('estado');
+  renderDonutChart();
+}
+
+function switchChart(tipo) {
+  document.getElementById('chart-tab-estado').classList.toggle('active', tipo === 'estado');
+  document.getElementById('chart-tab-area').classList.toggle('active', tipo === 'area');
+  renderMainChart(tipo);
+}
+
+function renderMainChart(tipo) {
+  const canvas = document.getElementById('chart-main');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (mainChart) mainChart.destroy();
+
+  const stats = Solicitudes.getStats();
+  let labels, data, colors;
+
+  if (tipo === 'estado') {
+    labels = ESTADOS.map(e => e.label);
+    data   = ESTADOS.map(e => stats.porEstado[e.id] || 0);
+    colors = ['#64748b','#5865f2','#f59e0b','#00d4ff','#10b981','#f43f5e'];
+  } else {
+    labels = AREAS.map(a => a.nombre);
+    data   = AREAS.map(a => stats.porArea[a.id]?.total || 0);
+    colors = AREAS.map(a => a.color);
+  }
+
+  mainChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Solicitudes',
+        data,
+        backgroundColor: colors.map(c => c + '88'),
+        borderColor: colors,
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b91a7', font: { size: 11 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8b91a7', stepSize: 1 }, beginAtZero: true },
+      },
+    }
+  });
+}
+
+function renderDonutChart() {
+  const canvas = document.getElementById('chart-donut');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (donutChart) donutChart.destroy();
+
+  const stats = Solicitudes.getStats();
+  const labels = AREAS.filter(a => stats.porArea[a.id]?.total > 0).map(a => a.nombre);
+  const data   = AREAS.filter(a => stats.porArea[a.id]?.total > 0).map(a => stats.porArea[a.id]?.total || 0);
+  const colors = AREAS.filter(a => stats.porArea[a.id]?.total > 0).map(a => a.color);
+
+  donutChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data, backgroundColor: colors,
+        borderWidth: 0, hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '70%',
+      plugins: { legend: { display: false } },
+    }
+  });
+
+  // Legend
+  const legend = document.getElementById('areas-legend');
+  if (legend) {
+    const total = data.reduce((a,b) => a+b, 0);
+    legend.innerHTML = AREAS.filter(a => stats.porArea[a.id]?.total > 0).map((a, i) => `
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:var(--text-xs)">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="width:8px;height:8px;border-radius:50%;background:${a.color};display:inline-block;flex-shrink:0"></span>
+          <span style="color:var(--text-secondary)">${a.emoji} ${a.nombre}</span>
+        </div>
+        <span style="font-weight:600;color:var(--text-primary)">${stats.porArea[a.id]?.total || 0}</span>
+      </div>
+    `).join('');
+  }
+}
+
+function renderFinanceMini() {
+  const cont = document.getElementById('finance-summary-mini');
+  if (!cont) return;
+  const res = Financiero.getResumenGlobal();
+
+  cont.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+      ${renderFinRow('💵 Cotizado (mes)', Fmt.currency(res.mesCotizado), '')}
+      ${renderFinRow('📤 Por cobrar', Fmt.currency(res.pendienteCobro), 'var(--warning-fg)')}
+      ${renderFinRow('📉 Gastos totales', Fmt.currency(res.totalGastos), 'var(--danger-fg)')}
+      ${renderFinRow('📈 Utilidad total', Fmt.currency(res.totalUtilidad), 'var(--success-fg)')}
+    </div>
+    <div style="margin-top:var(--space-3)">
+      <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--text-muted);margin-bottom:6px">
+        <span>Margen de ganancia</span>
+        <span style="font-weight:600;color:var(--text-primary)">${Fmt.percent(res.totalUtilidad, res.totalCotizado)}%</span>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-bar ${res.totalUtilidad > 0 ? 'success' : 'warning'}"
+          style="width:${Math.max(0, Fmt.percent(res.totalUtilidad, res.totalCotizado))}%"></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderFinRow(label, val, color) {
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:var(--text-xs);color:var(--text-secondary)">${label}</span>
+      <span style="font-size:var(--text-sm);font-weight:600;color:${color || 'var(--text-primary)'}; font-family:var(--font-display)">${val}</span>
+    </div>
+  `;
+}
+
+function renderActivityFeed() {
+  const feed = document.getElementById('activity-feed');
+  if (!feed) return;
+  const data = Solicitudes.getAll();
+  const eventos = [];
+
+  data.forEach(s => {
+    (s.historial || []).forEach(h => {
+      eventos.push({ sol: s, h, fecha: new Date(h.fecha) });
+    });
+  });
+
+  eventos.sort((a,b) => b.fecha - a.fecha);
+  const recientes = eventos.slice(0, 8);
+
+  const icons = { pendiente: '⏳', en_proceso: '🔄', revision: '👁️', aprobado: '✅', completado: '🎯', cancelado: '❌' };
+  const bgs   = { pendiente: 'var(--bg-hover)', en_proceso: 'rgba(88,101,242,0.15)', revision: 'rgba(245,158,11,0.15)',
+                  aprobado: 'rgba(0,212,255,0.1)', completado: 'rgba(16,185,129,0.15)', cancelado: 'rgba(244,63,94,0.12)' };
+
+  feed.innerHTML = recientes.map(e => `
+    <div class="activity-item" onclick="window.location.href='detalle-proyecto.html?id=${e.sol.id}'" style="cursor:pointer">
+      <div class="activity-icon" style="background:${bgs[e.h.estado] || 'var(--bg-hover)'}">${icons[e.h.estado] || '📌'}</div>
+      <div class="activity-body">
+        <div class="activity-text"><strong>${escHtml(e.sol.ticketId)}</strong> → ${getEstado(e.h.estado).label}</div>
+        <div class="activity-time">${Fmt.relative(e.h.fecha)}</div>
+      </div>
+    </div>
+  `).join('') || '<div class="empty-state" style="padding:20px"><div class="empty-state-title">Sin actividad reciente</div></div>';
+}
+</script>
+</body>
+</html>
