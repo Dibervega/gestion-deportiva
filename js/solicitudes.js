@@ -380,6 +380,28 @@ const Financiero = {
     return nuevoPago;
   },
 
+  editarPago(solicitudId, pagoId, datos) {
+    const solicitudes = Store.get('solicitudes') || [];
+    const idx = solicitudes.findIndex(s => s.id === solicitudId);
+    if (idx < 0) throw new Error('Solicitud no encontrada');
+    
+    if (!solicitudes[idx].financiero?.pagos) return;
+    const pIdx = solicitudes[idx].financiero.pagos.findIndex(p => p.id === pagoId);
+    if (pIdx < 0) return;
+
+    solicitudes[idx].financiero.pagos[pIdx] = {
+      ...solicitudes[idx].financiero.pagos[pIdx],
+      monto: datos.monto !== undefined ? parseFloat(datos.monto) : solicitudes[idx].financiero.pagos[pIdx].monto,
+      fecha: datos.fecha !== undefined ? datos.fecha : solicitudes[idx].financiero.pagos[pIdx].fecha,
+      metodoPago: datos.metodoPago !== undefined ? datos.metodoPago : solicitudes[idx].financiero.pagos[pIdx].metodoPago,
+      comprobante: datos.comprobante !== undefined ? datos.comprobante : solicitudes[idx].financiero.pagos[pIdx].comprobante,
+      notas: datos.notas !== undefined ? datos.notas : solicitudes[idx].financiero.pagos[pIdx].notas,
+    };
+    
+    solicitudes[idx].updatedAt = new Date().toISOString();
+    Store.set('solicitudes', solicitudes);
+  },
+
   eliminarPago(solicitudId, pagoId) {
     if (!Auth.can('all')) throw new Error('Solo admins pueden eliminar pagos');
     const solicitudes = Store.get('solicitudes') || [];
@@ -505,7 +527,6 @@ const Financiero = {
     
     // Gastos fijos (se asumen siempre aprobados y sumados al total)
     const totalGastosFijos = (fin.gastosFijos||[]).reduce((s,g) => s + (g.monto||0), 0);
-    const comisionFija = totalGastosFijos * 0.10;
     
     // Solo sumar gastos aprobados o pendientes (excluir rechazados)
     const gastosActivos = (fin.gastos||[]).filter(g => g.estado !== 'rechazado');
@@ -513,11 +534,16 @@ const Financiero = {
     const gastosAprobados = (fin.gastos||[]).filter(g => g.estado === 'aprobado').reduce((s,g) => s + (g.monto||0), 0) + totalGastosFijos;
     const gastosPendientes = (fin.gastos||[]).filter(g => g.estado === 'pendiente').reduce((s,g) => s + (g.monto||0), 0);
     const gastosRechazados = (fin.gastos||[]).filter(g => g.estado === 'rechazado').reduce((s,g) => s + (g.monto||0), 0);
-    const comisiones = (fin.comisiones||[]).reduce((s,c) => s + (c.monto||0), 0) + comisionFija;
+    
+    const comisionesBasicas = (fin.comisiones||[]).reduce((s,c) => s + (c.monto||0), 0);
+    const utilidadBruta = valorCotizado - gastos - comisionesBasicas;
+    const comisionSistema = utilidadBruta > 0 ? utilidadBruta * 0.10 : 0;
+    const comisiones = comisionesBasicas + comisionSistema;
+    
     const saldo      = Math.max(0, valorCotizado - anticipo);
     const utilidad   = valorCotizado - gastos - comisiones;
     const margen     = valorCotizado ? Fmt.percent(utilidad, valorCotizado) : 0;
-    return { valorCotizado, anticipo, saldo, gastos, gastosAprobados, gastosPendientes, gastosRechazados, comisiones, comisionFija, utilidad, margen };
+    return { valorCotizado, anticipo, saldo, gastos, gastosAprobados, gastosPendientes, gastosRechazados, comisiones, comisionSistema, utilidadBruta, utilidad, margen };
   },
 
   getResumenGlobal() {
@@ -532,11 +558,18 @@ const Financiero = {
       const g = (x.financiero?.gastos||[]).filter(gx=>gx.estado!=='rechazado').reduce((a,gx) => a+(gx.monto||0),0);
       return s + gf + g;
     }, 0);
-    const totalComisiones = data.reduce((s,x) => {
-      const com = (x.financiero?.comisiones||[]).reduce((a,c) => a+(c.monto||0),0);
+    
+    let totalComisiones = 0;
+    data.forEach(x => {
+      const vc = x.financiero?.valorCotizado||0;
       const gf = (x.financiero?.gastosFijos||[]).reduce((a,g) => a+(g.monto||0),0);
-      return s + com + (gf * 0.10);
-    }, 0);
+      const g = (x.financiero?.gastos||[]).filter(gx=>gx.estado!=='rechazado').reduce((a,gx) => a+(gx.monto||0),0);
+      const c = (x.financiero?.comisiones||[]).reduce((a,c) => a+(c.monto||0),0);
+      const ub = vc - (gf + g) - c;
+      const cs = ub > 0 ? ub * 0.10 : 0;
+      totalComisiones += (c + cs);
+    });
+    
     const totalUtilidad   = totalCotizado - totalGastos - totalComisiones;
     const pendienteCobro  = totalCotizado - totalAnticipo;
     const porArea = {};

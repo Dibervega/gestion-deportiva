@@ -371,8 +371,9 @@ function renderFinancieroHTML(res) {
         ${renderFinKPI('✅ Anticipo',  Fmt.currency(res.anticipo), 'var(--success-fg)')}
         ${renderFinKPI('⏳ Saldo',     Fmt.currency(res.saldo), res.saldo > 0 ? 'var(--warning-fg)' : 'var(--text-primary)')}
         ${renderFinKPI('📉 Gastos',    Fmt.currency(res.gastos), 'var(--danger-fg)')}
+        ${renderFinKPI('💰 U. Bruta',  Fmt.currency(res.utilidadBruta), 'var(--primary-300)')}
         ${renderFinKPI('🤝 Comis.',    Fmt.currency(res.comisiones), 'var(--accent-violet)')}
-        ${renderFinKPI('📈 Utilidad',  Fmt.currency(res.utilidad), res.utilidad >= 0 ? 'var(--success-fg)' : 'var(--danger-fg)')}
+        ${renderFinKPI('📈 U. Neta',   Fmt.currency(res.utilidad), res.utilidad >= 0 ? 'var(--success-fg)' : 'var(--danger-fg)')}
       </div>
 
       <!-- Margen -->
@@ -418,21 +419,21 @@ function renderFinancieroHTML(res) {
       </div>` : ''}
 
       <!-- Comisiones -->
-      ${((fin.comisiones||[]).length || res.comisionFija > 0) ? `
+      ${((fin.comisiones||[]).length || res.comisionSistema > 0) ? `
       <div style="margin-top:var(--space-5);padding-top:var(--space-4);border-top:1px solid var(--border-subtle)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
           <div style="font-size:var(--text-sm);font-weight:600">🤝 Comisiones</div>
           ${canWrite ? `<button class="btn btn-ghost btn-sm" onclick="openAgregarComision()">+ Agregar</button>` : ''}
         </div>
         
-        ${res.comisionFija > 0 ? `
+        ${res.comisionSistema > 0 ? `
         <div class="expense-row">
           <div style="display:flex;align-items:center;gap:var(--space-2)">
             <div class="avatar avatar-sm" style="background:var(--accent-violet)">🤖</div>
             <span style="font-size:var(--text-sm)">Sistema</span>
-            <span style="font-size:var(--text-xs);color:var(--text-muted)">(10% s/ Fijos)</span>
+            <span style="font-size:var(--text-xs);color:var(--text-muted)">(10% s/ U.Bruta)</span>
           </div>
-          <span style="font-weight:600;color:var(--accent-violet)">${Fmt.currency(res.comisionFija)}</span>
+          <span style="font-weight:600;color:var(--accent-violet)">${Fmt.currency(res.comisionSistema)}</span>
         </div>` : ''}
 
         ${(fin.comisiones||[]).map(c => {
@@ -489,7 +490,8 @@ function renderPagosHTML(pagos) {
         </div>
       </div>
       ${isAdmin ? `
-      <div style="display:flex;justify-content:flex-end;margin-top:var(--space-2);padding-top:var(--space-2);border-top:1px solid var(--border-subtle)">
+      <div style="display:flex;justify-content:flex-end;gap:var(--space-2);margin-top:var(--space-2);padding-top:var(--space-2);border-top:1px solid var(--border-subtle)">
+        <button class="btn btn-ghost btn-sm" style="font-size:.65rem;color:var(--text-secondary)" onclick="openEditarPago('${p.id}')">✏️ Editar</button>
         <button class="btn btn-ghost btn-sm" style="font-size:.65rem;color:var(--danger-fg)" onclick="eliminarPago('${p.id}')">🗑️ Eliminar</button>
       </div>` : ''}
     </div>`;
@@ -574,13 +576,16 @@ function renderGastosHTML(gastos) {
       </div>
       ${g.notas ? `<div style="font-size:var(--text-xs);color:var(--text-muted);font-style:italic;padding-left:var(--space-5)">${escHtml(g.notas)}</div>` : ''}
       ${g.estado==='rechazado'&&g.motivoRechazo ? `<div style="font-size:var(--text-xs);color:var(--danger-fg);padding-left:var(--space-5)">Motivo: ${escHtml(g.motivoRechazo)}</div>` : ''}
-      <div style="display:flex;gap:var(--space-1);padding-left:var(--space-5)">
+      <div style="display:flex;gap:var(--space-1);padding-left:var(--space-5);align-items:center">
         ${isAdmin && g.estado === 'pendiente' ? `
           <button class="btn btn-success btn-sm" style="font-size:.65rem;padding:4px 8px" onclick="aprobarGasto('${g.id}')">✅ Aprobar</button>
           <button class="btn btn-danger btn-sm" style="font-size:.65rem;padding:4px 8px" onclick="rechazarGasto('${g.id}')">❌ Rechazar</button>` : ''}
         ${isAdmin && g.estado === 'aprobado' ? `
           <button class="btn btn-ghost btn-sm" style="font-size:.65rem" onclick="rechazarGasto('${g.id}')" data-tooltip="Revertir aprobación">↩ Revertir</button>` : ''}
-        ${canWrite ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="eliminarGasto('${g.id}')" data-tooltip="Eliminar">🗑️</button>` : ''}
+        <div style="margin-left:auto;display:flex;gap:var(--space-1)">
+          ${canWrite ? `<button class="btn btn-ghost btn-sm" style="font-size:.65rem;color:var(--text-secondary);padding:4px 8px" onclick="openEditarGasto('${g.id}')">✏️ Editar</button>` : ''}
+          ${canWrite ? `<button class="btn btn-ghost btn-icon btn-sm" style="font-size:.65rem;color:var(--danger-fg)" onclick="eliminarGasto('${g.id}')" data-tooltip="Eliminar">🗑️</button>` : ''}
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -949,6 +954,67 @@ function openAgregarPago() {
   });
 }
 
+function openEditarPago(pagoId) {
+  const p = (SOL.financiero?.pagos || []).find(x => x.id === pagoId);
+  if (!p) return;
+
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">✏️ Editar Pago Cliente</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Monto (Abono) <span class="required">*</span></label>
+            <input class="form-control" type="number" id="ep-monto" value="${p.monto||0}" min="0" step="any" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha <span class="required">*</span></label>
+            <input class="form-control" type="date" id="ep-fecha" value="${p.fecha||''}" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Método de Pago</label>
+            <select class="form-control" id="ep-metodo">
+              ${METODOS_PAGO.map(m => `<option value="${m.id}" ${p.metodoPago===m.id?'selected':''}>${m.emoji} ${m.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Comprobante / Referencia</label>
+            <input class="form-control" id="ep-comprobante" value="${escHtml(p.comprobante||'')}" style="font-family:var(--font-mono)" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas adicionales</label>
+          <input class="form-control" id="ep-notas" value="${escHtml(p.notas||'')}" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-editar-pago">💾 Guardar Cambios</button>
+    </div>
+  `, { size: 'lg' });
+
+  modal.querySelector('#btn-editar-pago').addEventListener('click', () => {
+    const monto = parseFloat(modal.querySelector('#ep-monto').value);
+    const fecha = modal.querySelector('#ep-fecha').value;
+    if (isNaN(monto) || monto <= 0 || !fecha) { Toast.warning('Monto y fecha son obligatorios'); return; }
+    try {
+      Financiero.editarPago(SOL.id, pagoId, {
+        monto,
+        fecha,
+        metodoPago:  modal.querySelector('#ep-metodo').value,
+        comprobante: modal.querySelector('#ep-comprobante').value.trim(),
+        notas:       modal.querySelector('#ep-notas').value.trim(),
+      });
+      close();
+      Toast.success('Pago actualizado correctamente');
+      reload();
+    } catch(e) { Toast.error(e.message); }
+  });
+}
+
 function eliminarPago(pagoId) {
   confirmDialog('¿Eliminar este pago? El anticipo se recalculará automáticamente.').then(ok => {
     if (!ok) return;
@@ -1136,6 +1202,113 @@ function eliminarGastoFijo(gastoId) {
     try {
       Financiero.eliminarGastoFijo(SOL.id, gastoId);
       Toast.success('Gasto fijo eliminado');
+      reload();
+    } catch(e) { Toast.error(e.message); }
+  });
+}
+
+function openEditarGasto(gastoId) {
+  const g = (SOL.financiero?.gastos || []).find(x => x.id === gastoId);
+  if (!g) return;
+
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">✏️ Editar Gasto Variable</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Descripción <span class="required">*</span></label>
+            <input class="form-control" id="eg-desc" value="${escHtml(g.descripcion)}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Categoría</label>
+            <select class="form-control" id="eg-cat">
+              ${CATEGORIAS_GASTO.map(c => `<option value="${c.id}" ${g.categoria===c.id?'selected':''}>${c.emoji} ${c.label}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Subtotal <span class="required">*</span></label>
+            <input class="form-control" type="number" id="eg-subtotal" value="${g.subtotal||g.monto||0}" min="0" step="any" oninput="calcEGT()" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Impuesto (opcional)</label>
+            <input class="form-control" type="number" id="eg-impuesto" value="${g.impuesto||0}" min="0" step="any" oninput="calcEGT()" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Monto Total</label>
+          <input class="form-control" type="number" id="eg-monto" value="${g.monto||0}" readonly style="background:var(--bg-subtle);font-weight:bold" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Fecha del gasto</label>
+            <input class="form-control" type="date" id="eg-fecha" value="${g.fecha||''}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Proveedor / Tercero</label>
+            <input class="form-control" id="eg-proveedor" value="${escHtml(g.proveedor||'')}" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Nº Factura</label>
+            <input class="form-control" id="eg-factura" value="${escHtml(g.numeroFactura||'')}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Método de Pago</label>
+            <select class="form-control" id="eg-metodo">
+              ${METODOS_PAGO.map(m => `<option value="${m.id}" ${g.metodoPago===m.id?'selected':''}>${m.emoji} ${m.label}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Comprobante de pago (enlace o ref)</label>
+          <input class="form-control" id="eg-comprobante" value="${escHtml(g.comprobante||'')}" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas adicionales</label>
+          <textarea class="form-control" id="eg-notas" rows="2">${escHtml(g.notas||'')}</textarea>
+        </div>
+        <div style="font-size:var(--text-xs);color:var(--warning-fg)">⚠️ Editar un gasto aprobado lo devolverá al estado pendiente.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-editar-gasto">💾 Guardar Cambios</button>
+    </div>
+  `, { size: 'lg' });
+
+  window.calcEGT = function() {
+    const s = parseFloat(document.getElementById('eg-subtotal').value) || 0;
+    const i = parseFloat(document.getElementById('eg-impuesto').value) || 0;
+    document.getElementById('eg-monto').value = (s + i).toFixed(2);
+  };
+
+  modal.querySelector('#btn-editar-gasto').addEventListener('click', () => {
+    const desc = modal.querySelector('#eg-desc').value.trim();
+    const subtotal = parseFloat(modal.querySelector('#eg-subtotal').value);
+    
+    if (!desc || isNaN(subtotal) || subtotal < 0) {
+      Toast.warning('Descripción y subtotal son obligatorios'); return;
+    }
+    
+    try {
+      Financiero.editarGasto(SOL.id, gastoId, {
+        descripcion: desc,
+        categoria: modal.querySelector('#eg-cat').value,
+        subtotal: subtotal,
+        impuesto: parseFloat(modal.querySelector('#eg-impuesto').value) || 0,
+        fecha: modal.querySelector('#eg-fecha').value,
+        proveedor: modal.querySelector('#eg-proveedor').value.trim(),
+        numeroFactura: modal.querySelector('#eg-factura').value.trim(),
+        metodoPago: modal.querySelector('#eg-metodo').value,
+        comprobante: modal.querySelector('#eg-comprobante').value.trim(),
+        notas: modal.querySelector('#eg-notas').value.trim(),
+      });
+      close();
+      Toast.success('Gasto actualizado');
       reload();
     } catch(e) { Toast.error(e.message); }
   });

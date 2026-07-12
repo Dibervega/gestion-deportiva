@@ -303,19 +303,19 @@ function renderReport() {
       </div>` : ''}
 
       <!-- 4. Comisiones (solo admin) -->
-      ${isAdmin && (comisiones.length || res.comisionFija > 0) ? `
+      ${isAdmin && (comisiones.length || res.comisionSistema > 0) ? `
       <div>
         <div class="section-title">4. Comisiones al Equipo</div>
         <div style="overflow-x:auto;">
           <table class="print-table">
             <thead><tr><th>Colaborador</th><th>Concepto</th><th class="text-right">%</th><th class="text-right">Monto</th></tr></thead>
             <tbody>
-            ${res.comisionFija > 0 ? `
+            ${res.comisionSistema > 0 ? `
               <tr>
                 <td><strong>Sistema (Automático)</strong></td>
-                <td>Comisión operativa sobre Gastos Fijos</td>
+                <td>Comisión sobre Utilidad Bruta</td>
                 <td class="text-right">10%</td>
-                <td class="text-right money" style="font-weight:700;color:var(--accent-violet)">${Fmt.currency(res.comisionFija)}</td>
+                <td class="text-right money" style="font-weight:700;color:var(--accent-violet)">${Fmt.currency(res.comisionSistema)}</td>
               </tr>
             ` : ''}
             ${comisiones.map(c => {
@@ -346,6 +346,7 @@ function renderReport() {
           ${renderFinCard('⏳ Saldo Pendiente',   Fmt.currency(res.saldo),           res.saldo>0?'var(--warning-fg)':'var(--success-fg)')}
           ${renderFinCard('📉 Gastos Aprobados', Fmt.currency(res.gastosAprobados), 'var(--danger-fg)')}
           ${res.gastosPendientes>0 ? renderFinCard('⚠️ Gastos Pendientes', Fmt.currency(res.gastosPendientes), 'var(--accent-amber)') : ''}
+          ${renderFinCard('💰 Utilidad Bruta',    Fmt.currency(res.utilidadBruta),   'var(--primary-300)')}
           ${renderFinCard('🤝 Comisiones',        Fmt.currency(res.comisiones),      'var(--accent-violet)')}
           ${renderFinCard('📈 Utilidad Neta',     Fmt.currency(res.utilidad),        res.utilidad>=0?'var(--success-fg)':'var(--danger-fg)')}
           ${renderFinCard('📊 Margen %',          res.margen+'%',                    res.margen>=20?'var(--success-fg)':res.margen>=0?'var(--warning-fg)':'var(--danger-fg)')}
