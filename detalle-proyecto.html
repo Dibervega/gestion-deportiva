@@ -358,6 +358,7 @@ function renderFinancieroHTML(res) {
       <div class="card-title">💰 Control Financiero <span style="font-size:.7rem;font-weight:400;color:var(--danger-fg);background:var(--danger-bg);padding:2px 8px;border-radius:var(--radius-full);border:1px solid rgba(244,63,94,.2)">Solo Admin</span></div>
       ${canWrite ? `<div style="display:flex;gap:var(--space-2)">
         <button class="btn btn-secondary btn-sm" onclick="openAgregarPago()">+ Pago</button>
+        <button class="btn btn-secondary btn-sm" onclick="openAgregarGastoFijo()">+ Gasto Fijo</button>
         <button class="btn btn-secondary btn-sm" onclick="openAgregarGasto()">+ Gasto</button>
         <button class="btn btn-secondary btn-sm" onclick="openEditarFinanciero()">✏️ Editar</button>
         <button class="btn btn-ghost btn-sm" onclick="window.open('reporte-evento.html?id=${SOL.id}','_blank')">📄 Ver Reporte</button>
@@ -397,9 +398,15 @@ function renderFinancieroHTML(res) {
         <div id="pagos-list">${renderPagosHTML(fin.pagos||[])}</div>
       </div>
 
-      <!-- Gastos -->
+      <!-- Gastos Fijos -->
+      <div style="margin-bottom:var(--space-5)">
+        <div style="font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-3)">📌 Registro de Gastos Fijos</div>
+        <div id="gastos-fijos-list">${renderGastosFijosHTML(fin.gastosFijos||[])}</div>
+      </div>
+
+      <!-- Gastos Variables -->
       <div>
-        <div style="font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-3)">📋 Registro de Gastos</div>
+        <div style="font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-3)">📋 Registro de Gastos Variables</div>
         <div id="gastos-list">${renderGastosHTML(fin.gastos||[])}</div>
       </div>
 
@@ -473,6 +480,36 @@ function renderPagosHTML(pagos) {
       ${isAdmin ? `
       <div style="display:flex;justify-content:flex-end;margin-top:var(--space-2);padding-top:var(--space-2);border-top:1px solid var(--border-subtle)">
         <button class="btn btn-ghost btn-sm" style="font-size:.65rem;color:var(--danger-fg)" onclick="eliminarPago('${p.id}')">🗑️ Eliminar</button>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderGastosFijosHTML(gastosFijos) {
+  if (!gastosFijos.length) return `<div style="text-align:center;padding:var(--space-6);color:var(--text-muted);font-size:var(--text-sm)">Sin gastos fijos registrados</div>`;
+
+  return gastosFijos.map(g => {
+    const cat = getCat(g.categoria);
+    const u = getUserById(g.registradoPor);
+    return `<div class="expense-row" style="flex-direction:column;align-items:stretch;gap:var(--space-2)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)">
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <div class="expense-category-dot ${cat.dot}"></div>
+          <div>
+            <div style="font-size:var(--text-sm);font-weight:600">📌 ${escHtml(g.descripcion)}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+              ${escHtml(cat.label)}
+              ${u ? `· Por: ${escHtml(u.nombre)}` : ''}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span style="font-family:var(--font-display);font-weight:700;font-size:1.1rem;color:var(--danger-fg)">${Fmt.currency(g.monto)}</span>
+        </div>
+      </div>
+      ${isAdmin ? `
+      <div style="display:flex;justify-content:flex-end;margin-top:var(--space-2);padding-top:var(--space-2);border-top:1px solid var(--border-subtle)">
+        <button class="btn btn-ghost btn-sm" style="font-size:.65rem;color:var(--danger-fg)" onclick="eliminarGastoFijo('${g.id}')">🗑️ Eliminar</button>
       </div>` : ''}
     </div>`;
   }).join('');
@@ -902,6 +939,87 @@ function eliminarPago(pagoId) {
     try {
       Financiero.eliminarPago(SOL.id, pagoId);
       Toast.success('Pago eliminado');
+      reload();
+    } catch(e) { Toast.error(e.message); }
+  });
+}
+
+function openAgregarGastoFijo() {
+  // Pre-calcular HTML de gastos predefinidos
+  const opciones = typeof GASTOS_FIJOS_PREDEFINIDOS !== 'undefined' ? GASTOS_FIJOS_PREDEFINIDOS : [];
+  const optionsHTML = opciones.map(gf => `<option value="${gf.id}" data-precio="${gf.precioEstimado}" data-cat="${gf.categoria}">${gf.label} (Ref: ${Fmt.currency(gf.precioEstimado)})</option>`).join('');
+
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">📌 Registrar Gasto Fijo</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        
+        <div class="form-group">
+          <label class="form-label">Seleccionar Gasto Preestablecido</label>
+          <select class="form-control" id="gf-predefinido" onchange="document.getElementById('gf-monto').value = this.options[this.selectedIndex].dataset.precio || ''; document.getElementById('gf-desc').value = this.options[this.selectedIndex].text.split(' (')[0]; document.getElementById('gf-cat').value = this.options[this.selectedIndex].dataset.cat || 'otros';">
+            <option value="" data-precio="" data-cat="otros">-- Crear gasto fijo manual --</option>
+            ${optionsHTML}
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Descripción <span class="required">*</span></label>
+            <input class="form-control" id="gf-desc" placeholder="Nombre del gasto" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Categoría</label>
+            <select class="form-control" id="gf-cat">
+              ${CATEGORIAS_GASTO.map(c => `<option value="${c.id}">${c.emoji} ${c.label}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Monto <span class="required">*</span></label>
+          <input class="form-control" type="number" id="gf-monto" placeholder="0" min="0" />
+        </div>
+
+        <div style="background:var(--info-bg);border:1px solid rgba(0,212,255,.2);border-radius:var(--radius-md);padding:var(--space-3);font-size:var(--text-xs);color:var(--info-fg)">
+          💡 Los gastos fijos se suman automáticamente al total de gastos aprobados del proyecto.
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-guardar-gf">💾 Guardar Gasto Fijo</button>
+    </div>
+  `, { size: 'lg' });
+
+  modal.querySelector('#btn-guardar-gf').addEventListener('click', () => {
+    const sel = modal.querySelector('#gf-predefinido');
+    const desc = modal.querySelector('#gf-desc').value.trim();
+    const monto = parseFloat(modal.querySelector('#gf-monto').value);
+    const cat = modal.querySelector('#gf-cat').value;
+    
+    if (!desc) { Toast.warning('La descripción es obligatoria'); return; }
+    if (isNaN(monto) || monto < 0) { Toast.warning('Monto inválido'); return; }
+    
+    try {
+      Financiero.agregarGastoFijo(SOL.id, {
+        gastoDefectoId: sel.value || 'custom',
+        descripcion: desc,
+        categoria: cat,
+        monto: monto
+      });
+      close();
+      Toast.success('Gasto fijo agregado correctamente');
+      reload();
+    } catch(e) { Toast.error(e.message); }
+  });
+}
+
+function eliminarGastoFijo(gastoId) {
+  confirmDialog('¿Eliminar este gasto fijo del proyecto?').then(ok => {
+    if (!ok) return;
+    try {
+      Financiero.eliminarGastoFijo(SOL.id, gastoId);
+      Toast.success('Gasto fijo eliminado');
       reload();
     } catch(e) { Toast.error(e.message); }
   });

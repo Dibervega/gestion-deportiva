@@ -392,6 +392,43 @@ const Financiero = {
     }
   },
 
+  agregarGastoFijo(solicitudId, gastoFijo) {
+    const solicitudes = Store.get('solicitudes') || [];
+    const idx = solicitudes.findIndex(s => s.id === solicitudId);
+    if (idx < 0) throw new Error('Solicitud no encontrada');
+    const user = Auth.getCurrentUser();
+    
+    const nuevoGastoFijo = {
+      id: generateId(),
+      gastoDefectoId: gastoFijo.gastoDefectoId || 'custom',
+      descripcion: gastoFijo.descripcion,
+      categoria: gastoFijo.categoria || 'otros',
+      monto: parseFloat(gastoFijo.monto) || 0,
+      registradoPor: user?.id || null,
+      creadoEn: new Date().toISOString(),
+    };
+    
+    solicitudes[idx].financiero = solicitudes[idx].financiero || {};
+    solicitudes[idx].financiero.gastosFijos = solicitudes[idx].financiero.gastosFijos || [];
+    solicitudes[idx].financiero.gastosFijos.push(nuevoGastoFijo);
+    solicitudes[idx].updatedAt = new Date().toISOString();
+    Store.set('solicitudes', solicitudes);
+    addNotification('gasto', `Gasto fijo añadido: ${Fmt.currency(nuevoGastoFijo.monto)} — ${solicitudes[idx].titulo}`);
+    return nuevoGastoFijo;
+  },
+
+  eliminarGastoFijo(solicitudId, gastoId) {
+    if (!Auth.can('all')) throw new Error('Solo admins pueden eliminar gastos fijos');
+    const solicitudes = Store.get('solicitudes') || [];
+    const idx = solicitudes.findIndex(s => s.id === solicitudId);
+    if (idx < 0) return;
+    if (solicitudes[idx].financiero?.gastosFijos) {
+      solicitudes[idx].financiero.gastosFijos = solicitudes[idx].financiero.gastosFijos.filter(g => g.id !== gastoId);
+      solicitudes[idx].updatedAt = new Date().toISOString();
+      Store.set('solicitudes', solicitudes);
+    }
+  },
+
   actualizarFinanciero(solicitudId, datos) {
     const solicitudes = Store.get('solicitudes') || [];
     const idx = solicitudes.findIndex(s => s.id === solicitudId);
@@ -434,10 +471,13 @@ const Financiero = {
     const totalPagos = (fin.pagos||[]).reduce((s,p) => s + (p.monto||0), 0);
     const anticipo   = totalPagos > 0 ? totalPagos : (fin.anticipo || 0);
     
+    // Gastos fijos (se asumen siempre aprobados y sumados al total)
+    const totalGastosFijos = (fin.gastosFijos||[]).reduce((s,g) => s + (g.monto||0), 0);
+    
     // Solo sumar gastos aprobados o pendientes (excluir rechazados)
     const gastosActivos = (fin.gastos||[]).filter(g => g.estado !== 'rechazado');
-    const gastos     = gastosActivos.reduce((s,g) => s + (g.monto||0), 0);
-    const gastosAprobados = (fin.gastos||[]).filter(g => g.estado === 'aprobado').reduce((s,g) => s + (g.monto||0), 0);
+    const gastos     = gastosActivos.reduce((s,g) => s + (g.monto||0), 0) + totalGastosFijos;
+    const gastosAprobados = (fin.gastos||[]).filter(g => g.estado === 'aprobado').reduce((s,g) => s + (g.monto||0), 0) + totalGastosFijos;
     const gastosPendientes = (fin.gastos||[]).filter(g => g.estado === 'pendiente').reduce((s,g) => s + (g.monto||0), 0);
     const gastosRechazados = (fin.gastos||[]).filter(g => g.estado === 'rechazado').reduce((s,g) => s + (g.monto||0), 0);
     const comisiones = (fin.comisiones||[]).reduce((s,c) => s + (c.monto||0), 0);
@@ -454,7 +494,11 @@ const Financiero = {
       const p = (x.financiero?.pagos||[]).reduce((sum, pago) => sum + (pago.monto||0), 0);
       return s + (p > 0 ? p : (x.financiero?.anticipo||0));
     }, 0);
-    const totalGastos     = data.reduce((s,x) => s + (x.financiero?.gastos||[]).filter(g=>g.estado!=='rechazado').reduce((a,g) => a+(g.monto||0),0), 0);
+    const totalGastos = data.reduce((s,x) => {
+      const gf = (x.financiero?.gastosFijos||[]).reduce((a,g) => a+(g.monto||0),0);
+      const g = (x.financiero?.gastos||[]).filter(gx=>gx.estado!=='rechazado').reduce((a,gx) => a+(gx.monto||0),0);
+      return s + gf + g;
+    }, 0);
     const totalComisiones = data.reduce((s,x) => s + (x.financiero?.comisiones||[]).reduce((a,c) => a+(c.monto||0),0), 0);
     const totalUtilidad   = totalCotizado - totalGastos - totalComisiones;
     const pendienteCobro  = totalCotizado - totalAnticipo;

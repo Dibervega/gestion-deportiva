@@ -87,6 +87,13 @@ const ESTADOS_SERVICIO = [
   { id: "entregado",   label: "Entregado",  badge: "badge-completed", emoji: "✅" },
 ];
 const UNIDADES = ["unidades","horas","días","eventos","metros","piezas","personas","kg","m²"];
+const GASTOS_FIJOS_PREDEFINIDOS = [
+  { id: "chips", label: "Chips de Cronometraje", categoria: "materiales", precioEstimado: 5000 },
+  { id: "dorsales", label: "Dorsales / Números", categoria: "materiales", precioEstimado: 2000 },
+  { id: "transporte_equipos", label: "Transporte de Equipos", categoria: "transporte", precioEstimado: 50000 },
+  { id: "viaticos", label: "Viáticos Básicos", categoria: "personal", precioEstimado: 30000 },
+  { id: "seguro", label: "Seguro de Evento", categoria: "admin", precioEstimado: 100000 }
+];
 const ROLES = [
   { id: "admin",        label: "Administrador",  permisos: ["all"] },
   { id: "coordinador",  label: "Coordinador",    permisos: ["read", "write", "status"] },
