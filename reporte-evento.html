@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -194,33 +194,35 @@ function renderReport() {
       <div>
         <div class="section-title">2. Servicios Contratados</div>
         ${servicios.length ? `
-        <table class="print-table">
-          <thead><tr>
-            <th>Servicio</th><th>Área</th><th class="text-center">Cantidad</th><th>Unidad</th>
-            ${isAdmin ? '<th class="text-right">P. Unitario</th><th class="text-right">Total</th>' : ''}
-            <th class="text-center">Estado</th><th>Entrega</th>
-          </tr></thead>
-          <tbody>
-          ${servicios.map(s => {
-            const a = getArea(s.area);
-            const es = getEstadoSrv(s.estado);
-            return `<tr>
-              <td><div style="font-weight:600">${escHtml(s.nombre)}</div>${s.descripcion?`<div style="font-size:.7rem;color:var(--text-muted)">${escHtml(s.descripcion)}</div>`:''}</td>
-              <td><span class="badge badge-area" style="font-size:.65rem">${a.emoji} ${a.nombre}</span></td>
-              <td class="text-center" style="font-weight:700">${s.cantidad}</td>
-              <td>${escHtml(s.unidad)}</td>
-              ${isAdmin ? `<td class="text-right">${Fmt.currency(s.precioUnitario||0)}</td><td class="text-right money" style="font-weight:700">${Fmt.currency(s.precioTotal||0)}</td>` : ''}
-              <td class="text-center"><span class="badge ${es.badge}" style="font-size:.65rem">${es.emoji} ${es.label}</span></td>
-              <td style="font-size:.75rem">${s.fechaEntrega?Fmt.date(s.fechaEntrega):'—'}</td>
-            </tr>`;
-          }).join('')}
-          </tbody>
-          ${isAdmin ? `<tfoot><tr>
-            <td colspan="5">TOTAL SERVICIOS</td>
-            <td class="text-right money" style="color:var(--primary-300)">${Fmt.currency(totalServicios)}</td>
-            <td colspan="2"></td>
-          </tr></tfoot>` : ''}
-        </table>` : '<p style="color:var(--text-muted);font-size:.875rem">Sin servicios registrados.</p>'}
+        <div style="overflow-x:auto;">
+          <table class="print-table">
+            <thead><tr>
+              <th>Servicio</th><th>Área</th><th class="text-center">Cantidad</th><th>Unidad</th>
+              ${isAdmin ? '<th class="text-right">P. Unitario</th><th class="text-right">Total</th>' : ''}
+              <th class="text-center">Estado</th><th>Entrega</th>
+            </tr></thead>
+            <tbody>
+            ${servicios.map(s => {
+              const a = getArea(s.area);
+              const es = getEstadoSrv(s.estado);
+              return `<tr>
+                <td><div style="font-weight:600">${escHtml(s.nombre)}</div>${s.descripcion?`<div style="font-size:.7rem;color:var(--text-muted)">${escHtml(s.descripcion)}</div>`:''}</td>
+                <td><span class="badge badge-area" style="font-size:.65rem">${a.emoji} ${a.nombre}</span></td>
+                <td class="text-center" style="font-weight:700">${s.cantidad}</td>
+                <td>${escHtml(s.unidad)}</td>
+                ${isAdmin ? `<td class="text-right">${Fmt.currency(s.precioUnitario||0)}</td><td class="text-right money" style="font-weight:700">${Fmt.currency(s.precioTotal||0)}</td>` : ''}
+                <td class="text-center"><span class="badge ${es.badge}" style="font-size:.65rem">${es.emoji} ${es.label}</span></td>
+                <td style="font-size:.75rem">${s.fechaEntrega?Fmt.date(s.fechaEntrega):'—'}</td>
+              </tr>`;
+            }).join('')}
+            </tbody>
+            ${isAdmin ? `<tfoot><tr>
+              <td colspan="5">TOTAL SERVICIOS</td>
+              <td class="text-right money" style="color:var(--primary-300)">${Fmt.currency(totalServicios)}</td>
+              <td colspan="2"></td>
+            </tr></tfoot>` : ''}
+          </table>
+        </div>` : '<p style="color:var(--text-muted);font-size:.875rem">Sin servicios registrados.</p>'}
       </div>
 
       <!-- 3. Gastos del Evento (solo admin) -->
@@ -228,73 +230,110 @@ function renderReport() {
       <div>
         <div class="section-title">3. Registro de Gastos</div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:.8rem">
-          <span>✅ Aprobados: <strong style="color:var(--success-fg)">${Fmt.currency(totalAprobados)}</strong> (${gastosAprobados.length})</span>
-          <span>⏳ Pendientes: <strong style="color:var(--warning-fg)">${Fmt.currency(totalPendientes)}</strong> (${gastosPendientes.length})</span>
-          <span>❌ Rechazados: <strong style="color:var(--danger-fg)">${Fmt.currency(totalRechazados)}</strong> (${gastosRechazados.length})</span>
+          <span>✅ Aprobados + Fijos: <strong style="color:var(--success-fg)">${Fmt.currency(res.gastosAprobados)}</strong></span>
+          <span>⏳ Pendientes: <strong style="color:var(--warning-fg)">${Fmt.currency(totalPendientes)}</strong></span>
+          <span>❌ Rechazados: <strong style="color:var(--danger-fg)">${Fmt.currency(totalRechazados)}</strong></span>
         </div>
+        
+        ${sol.financiero?.gastosFijos?.length ? `
+        <div style="font-size:.85rem;font-weight:700;color:var(--primary-300);margin-bottom:8px">📌 Gastos Fijos Preestablecidos</div>
+        <div style="overflow-x:auto;margin-bottom:24px;">
+          <table class="print-table">
+            <thead><tr><th>Descripción</th><th>Categoría</th><th class="text-right">Cantidad</th><th class="text-right">P. Unitario</th><th class="text-right">Total</th></tr></thead>
+            <tbody>
+            ${sol.financiero.gastosFijos.map(g => `
+              <tr>
+                <td><div style="font-weight:500">${escHtml(g.descripcion)}</div></td>
+                <td><span style="font-size:.7rem">${escHtml(getCat(g.categoria).label)}</span></td>
+                <td class="text-right">${g.cantidad || 1}</td>
+                <td class="text-right">${Fmt.currency(g.valorUnitario !== undefined ? g.valorUnitario : g.monto)}</td>
+                <td class="text-right money" style="font-weight:700;color:var(--danger-fg)">${Fmt.currency(g.monto)}</td>
+              </tr>
+            `).join('')}
+            </tbody>
+            <tfoot><tr>
+              <td colspan="4">SUBTOTAL GASTOS FIJOS</td>
+              <td class="text-right money" style="color:var(--danger-fg)">${Fmt.currency(sol.financiero.gastosFijos.reduce((s,g)=>s+(g.monto||0),0))}</td>
+            </tr></tfoot>
+          </table>
+        </div>` : ''}
+
+        <div style="font-size:.85rem;font-weight:700;color:var(--primary-300);margin-bottom:8px">📋 Gastos Variables</div>
         ${gastos.length ? `
-        <table class="print-table">
-          <thead><tr>
-            <th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Proveedor</th>
-            <th>Nº Factura</th><th>Método Pago</th><th>Comprobante</th>
-            <th class="text-right">Subtotal</th><th class="text-right">Impuesto</th>
-            <th class="text-right">Total</th><th class="text-center">Estado</th>
-          </tr></thead>
-          <tbody>
-          ${gastos.map(g => {
-            const cat = getCat(g.categoria);
-            const mp  = getMetodoPago(g.metodoPago||'efectivo');
-            const est = getEstadoGasto(g.estado||'pendiente');
-            const clsStatus = g.estado === 'aprobado' ? 'status-aprobado' : g.estado === 'rechazado' ? 'status-rechazado' : 'status-pendiente';
-            return `<tr class="${g.estado==='rechazado'?'':''}">
-              <td style="white-space:nowrap">${Fmt.date(g.fecha)}</td>
-              <td><div style="font-weight:500;max-width:160px">${escHtml(g.descripcion)}</div>${g.notas?`<div style="font-size:.65rem;color:var(--text-muted)">${escHtml(g.notas)}</div>`:''}</td>
-              <td><span style="font-size:.7rem">${escHtml(cat.label)}</span></td>
-              <td style="font-size:.8rem">${escHtml(g.proveedor||'—')}</td>
-              <td style="font-family:var(--font-mono);font-size:.75rem;color:var(--primary-400)">${escHtml(g.numeroFactura||'—')}</td>
-              <td style="font-size:.75rem">${mp.emoji} ${mp.label}</td>
-              <td style="font-family:var(--font-mono);font-size:.7rem">${escHtml(g.comprobante||'—')}</td>
-              <td class="text-right">${Fmt.currency(g.subtotal||g.monto||0)}</td>
-              <td class="text-right" style="color:var(--warning-fg)">${g.impuesto?Fmt.currency(g.impuesto):'—'}</td>
-              <td class="text-right money" style="font-weight:700">${Fmt.currency(g.monto||0)}</td>
-              <td class="text-center ${clsStatus}" style="font-size:.75rem;font-weight:700">${est.emoji} ${est.label}
-                ${g.motivoRechazo?`<div style="font-size:.6rem">(${escHtml(g.motivoRechazo)})</div>`:''}
-              </td>
-            </tr>`;
-          }).join('')}
-          </tbody>
-          <tfoot><tr>
-            <td colspan="7">TOTAL GASTOS (aprobados + pendientes)</td>
-            <td class="text-right">${Fmt.currency(gastos.filter(g=>g.estado!=='rechazado').reduce((s,g)=>s+(g.subtotal||g.monto||0),0))}</td>
-            <td class="text-right" style="color:var(--warning-fg)">${Fmt.currency(gastos.filter(g=>g.estado!=='rechazado').reduce((s,g)=>s+(g.impuesto||0),0))}</td>
-            <td class="text-right money" style="color:var(--danger-fg)">${Fmt.currency(res.gastos)}</td>
-            <td></td>
-          </tr></tfoot>
-        </table>` : '<p style="color:var(--text-muted);font-size:.875rem">Sin gastos registrados.</p>'}
+        <div style="overflow-x:auto;">
+          <table class="print-table">
+            <thead><tr>
+              <th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Proveedor</th>
+              <th>Nº Factura</th><th>Método Pago</th><th>Comprobante</th>
+              <th class="text-right">Subtotal</th><th class="text-right">Impuesto</th>
+              <th class="text-right">Total</th><th class="text-center">Estado</th>
+            </tr></thead>
+            <tbody>
+            ${gastos.map(g => {
+              const cat = getCat(g.categoria);
+              const mp  = getMetodoPago(g.metodoPago||'efectivo');
+              const est = getEstadoGasto(g.estado||'pendiente');
+              const clsStatus = g.estado === 'aprobado' ? 'status-aprobado' : g.estado === 'rechazado' ? 'status-rechazado' : 'status-pendiente';
+              return `<tr class="${g.estado==='rechazado'?'':''}">
+                <td style="white-space:nowrap">${Fmt.date(g.fecha)}</td>
+                <td><div style="font-weight:500;max-width:160px">${escHtml(g.descripcion)}</div>${g.notas?`<div style="font-size:.65rem;color:var(--text-muted)">${escHtml(g.notas)}</div>`:''}</td>
+                <td><span style="font-size:.7rem">${escHtml(cat.label)}</span></td>
+                <td style="font-size:.8rem">${escHtml(g.proveedor||'—')}</td>
+                <td style="font-family:var(--font-mono);font-size:.75rem;color:var(--primary-400)">${escHtml(g.numeroFactura||'—')}</td>
+                <td style="font-size:.75rem">${mp.emoji} ${mp.label}</td>
+                <td style="font-family:var(--font-mono);font-size:.7rem">${escHtml(g.comprobante||'—')}</td>
+                <td class="text-right">${Fmt.currency(g.subtotal||g.monto||0)}</td>
+                <td class="text-right" style="color:var(--warning-fg)">${g.impuesto?Fmt.currency(g.impuesto):'—'}</td>
+                <td class="text-right money" style="font-weight:700">${Fmt.currency(g.monto||0)}</td>
+                <td class="text-center ${clsStatus}" style="font-size:.75rem;font-weight:700">${est.emoji} ${est.label}
+                  ${g.motivoRechazo?`<div style="font-size:.6rem">(${escHtml(g.motivoRechazo)})</div>`:''}
+                </td>
+              </tr>`;
+            }).join('')}
+            </tbody>
+            <tfoot><tr>
+              <td colspan="7">SUBTOTAL GASTOS VARIABLES (aprobados + pendientes)</td>
+              <td class="text-right">${Fmt.currency(gastos.filter(g=>g.estado!=='rechazado').reduce((s,g)=>s+(g.subtotal||g.monto||0),0))}</td>
+              <td class="text-right" style="color:var(--warning-fg)">${Fmt.currency(gastos.filter(g=>g.estado!=='rechazado').reduce((s,g)=>s+(g.impuesto||0),0))}</td>
+              <td class="text-right money" style="color:var(--danger-fg)">${Fmt.currency(res.gastos - (sol.financiero?.gastosFijos||[]).reduce((a,b)=>a+(b.monto||0),0))}</td>
+              <td></td>
+            </tr></tfoot>
+          </table>
+        </div>` : '<p style="color:var(--text-muted);font-size:.875rem">Sin gastos variables registrados.</p>'}
       </div>` : ''}
 
       <!-- 4. Comisiones (solo admin) -->
-      ${isAdmin && comisiones.length ? `
+      ${isAdmin && (comisiones.length || res.comisionFija > 0) ? `
       <div>
         <div class="section-title">4. Comisiones al Equipo</div>
-        <table class="print-table">
-          <thead><tr><th>Colaborador</th><th>Concepto</th><th class="text-right">%</th><th class="text-right">Monto</th></tr></thead>
-          <tbody>
-          ${comisiones.map(c => {
-            const u = getUserById(c.usuarioId);
-            return `<tr>
-              <td>${escHtml(u?.nombre||'Desconocido')}</td>
-              <td>${escHtml(c.concepto||'Comisión')}</td>
-              <td class="text-right">${c.porcentaje?c.porcentaje+'%':'—'}</td>
-              <td class="text-right money" style="font-weight:700;color:var(--accent-violet)">${Fmt.currency(c.monto||0)}</td>
-            </tr>`;
-          }).join('')}
-          </tbody>
-          <tfoot><tr>
-            <td colspan="3">TOTAL COMISIONES</td>
-            <td class="text-right money" style="color:var(--accent-violet)">${Fmt.currency(totalComisiones)}</td>
-          </tr></tfoot>
-        </table>
+        <div style="overflow-x:auto;">
+          <table class="print-table">
+            <thead><tr><th>Colaborador</th><th>Concepto</th><th class="text-right">%</th><th class="text-right">Monto</th></tr></thead>
+            <tbody>
+            ${res.comisionFija > 0 ? `
+              <tr>
+                <td><strong>Sistema (Automático)</strong></td>
+                <td>Comisión operativa sobre Gastos Fijos</td>
+                <td class="text-right">10%</td>
+                <td class="text-right money" style="font-weight:700;color:var(--accent-violet)">${Fmt.currency(res.comisionFija)}</td>
+              </tr>
+            ` : ''}
+            ${comisiones.map(c => {
+              const u = getUserById(c.usuarioId);
+              return `<tr>
+                <td>${escHtml(u?.nombre||'Desconocido')}</td>
+                <td>${escHtml(c.concepto||'Comisión')}</td>
+                <td class="text-right">${c.porcentaje?c.porcentaje+'%':'—'}</td>
+                <td class="text-right money" style="font-weight:700;color:var(--accent-violet)">${Fmt.currency(c.monto||0)}</td>
+              </tr>`;
+            }).join('')}
+            </tbody>
+            <tfoot><tr>
+              <td colspan="3">TOTAL COMISIONES</td>
+              <td class="text-right money" style="color:var(--accent-violet)">${Fmt.currency(res.comisiones)}</td>
+            </tr></tfoot>
+          </table>
+        </div>
       </div>` : ''}
 
       <!-- 5. Resumen Financiero (solo admin) -->

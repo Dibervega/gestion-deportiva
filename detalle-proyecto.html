@@ -418,12 +418,23 @@ function renderFinancieroHTML(res) {
       </div>` : ''}
 
       <!-- Comisiones -->
-      ${(fin.comisiones||[]).length ? `
+      ${((fin.comisiones||[]).length || res.comisionFija > 0) ? `
       <div style="margin-top:var(--space-5);padding-top:var(--space-4);border-top:1px solid var(--border-subtle)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
           <div style="font-size:var(--text-sm);font-weight:600">🤝 Comisiones</div>
           ${canWrite ? `<button class="btn btn-ghost btn-sm" onclick="openAgregarComision()">+ Agregar</button>` : ''}
         </div>
+        
+        ${res.comisionFija > 0 ? `
+        <div class="expense-row">
+          <div style="display:flex;align-items:center;gap:var(--space-2)">
+            <div class="avatar avatar-sm" style="background:var(--accent-violet)">🤖</div>
+            <span style="font-size:var(--text-sm)">Sistema</span>
+            <span style="font-size:var(--text-xs);color:var(--text-muted)">(10% s/ Fijos)</span>
+          </div>
+          <span style="font-weight:600;color:var(--accent-violet)">${Fmt.currency(res.comisionFija)}</span>
+        </div>` : ''}
+
         ${(fin.comisiones||[]).map(c => {
           const u = getUserById(c.usuarioId);
           return `
