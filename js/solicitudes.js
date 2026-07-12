@@ -398,12 +398,17 @@ const Financiero = {
     if (idx < 0) throw new Error('Solicitud no encontrada');
     const user = Auth.getCurrentUser();
     
+    const cantidad = parseFloat(gastoFijo.cantidad) || 1;
+    const valorUnitario = parseFloat(gastoFijo.valorUnitario) || parseFloat(gastoFijo.monto) || 0;
+
     const nuevoGastoFijo = {
       id: generateId(),
       gastoDefectoId: gastoFijo.gastoDefectoId || 'custom',
       descripcion: gastoFijo.descripcion,
       categoria: gastoFijo.categoria || 'otros',
-      monto: parseFloat(gastoFijo.monto) || 0,
+      cantidad: cantidad,
+      valorUnitario: valorUnitario,
+      monto: cantidad * valorUnitario,
       registradoPor: user?.id || null,
       creadoEn: new Date().toISOString(),
     };
@@ -415,6 +420,33 @@ const Financiero = {
     Store.set('solicitudes', solicitudes);
     addNotification('gasto', `Gasto fijo añadido: ${Fmt.currency(nuevoGastoFijo.monto)} — ${solicitudes[idx].titulo}`);
     return nuevoGastoFijo;
+  },
+
+  editarGastoFijo(solicitudId, gastoId, datos) {
+    const solicitudes = Store.get('solicitudes') || [];
+    const idx = solicitudes.findIndex(s => s.id === solicitudId);
+    if (idx < 0) throw new Error('Solicitud no encontrada');
+    
+    if (!solicitudes[idx].financiero?.gastosFijos) return;
+    const gastoIdx = solicitudes[idx].financiero.gastosFijos.findIndex(g => g.id === gastoId);
+    if (gastoIdx < 0) return;
+
+    const g = solicitudes[idx].financiero.gastosFijos[gastoIdx];
+    const cantidad = datos.cantidad !== undefined ? parseFloat(datos.cantidad) : (g.cantidad || 1);
+    const valorUnitario = datos.valorUnitario !== undefined ? parseFloat(datos.valorUnitario) : (g.valorUnitario || g.monto || 0);
+
+    solicitudes[idx].financiero.gastosFijos[gastoIdx] = {
+      ...g,
+      gastoDefectoId: datos.gastoDefectoId !== undefined ? datos.gastoDefectoId : g.gastoDefectoId,
+      descripcion: datos.descripcion !== undefined ? datos.descripcion : g.descripcion,
+      categoria: datos.categoria !== undefined ? datos.categoria : g.categoria,
+      cantidad: cantidad,
+      valorUnitario: valorUnitario,
+      monto: cantidad * valorUnitario,
+    };
+    
+    solicitudes[idx].updatedAt = new Date().toISOString();
+    Store.set('solicitudes', solicitudes);
   },
 
   eliminarGastoFijo(solicitudId, gastoId) {

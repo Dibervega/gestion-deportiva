@@ -491,6 +491,9 @@ function renderGastosFijosHTML(gastosFijos) {
   return gastosFijos.map(g => {
     const cat = getCat(g.categoria);
     const u = getUserById(g.registradoPor);
+    const qty = g.cantidad || 1;
+    const unit = g.valorUnitario !== undefined ? g.valorUnitario : (g.monto||0);
+
     return `<div class="expense-row" style="flex-direction:column;align-items:stretch;gap:var(--space-2)">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)">
         <div style="display:flex;align-items:center;gap:var(--space-3)">
@@ -499,6 +502,7 @@ function renderGastosFijosHTML(gastosFijos) {
             <div style="font-size:var(--text-sm);font-weight:600">📌 ${escHtml(g.descripcion)}</div>
             <div style="font-size:var(--text-xs);color:var(--text-muted);display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
               ${escHtml(cat.label)}
+              ${qty !== 1 ? `· Cantidad: <b>${qty}</b> x ${Fmt.currency(unit)}` : ''}
               ${u ? `· Por: ${escHtml(u.nombre)}` : ''}
             </div>
           </div>
@@ -508,7 +512,8 @@ function renderGastosFijosHTML(gastosFijos) {
         </div>
       </div>
       ${isAdmin ? `
-      <div style="display:flex;justify-content:flex-end;margin-top:var(--space-2);padding-top:var(--space-2);border-top:1px solid var(--border-subtle)">
+      <div style="display:flex;justify-content:flex-end;gap:var(--space-2);margin-top:var(--space-2);padding-top:var(--space-2);border-top:1px solid var(--border-subtle)">
+        <button class="btn btn-ghost btn-sm" style="font-size:.65rem;color:var(--text-secondary)" onclick="openEditarGastoFijo('${g.id}')">✏️ Editar</button>
         <button class="btn btn-ghost btn-sm" style="font-size:.65rem;color:var(--danger-fg)" onclick="eliminarGastoFijo('${g.id}')">🗑️ Eliminar</button>
       </div>` : ''}
     </div>`;
@@ -956,7 +961,13 @@ function openAgregarGastoFijo() {
         
         <div class="form-group">
           <label class="form-label">Seleccionar Gasto Preestablecido</label>
-          <select class="form-control" id="gf-predefinido" onchange="document.getElementById('gf-monto').value = this.options[this.selectedIndex].dataset.precio || ''; document.getElementById('gf-desc').value = this.options[this.selectedIndex].text.split(' (')[0]; document.getElementById('gf-cat').value = this.options[this.selectedIndex].dataset.cat || 'otros';">
+          <select class="form-control" id="gf-predefinido" onchange="
+            const opt = this.options[this.selectedIndex];
+            document.getElementById('gf-unitario').value = opt.dataset.precio || '';
+            document.getElementById('gf-desc').value = opt.text.split(' (')[0];
+            document.getElementById('gf-cat').value = opt.dataset.cat || 'otros';
+            calcTotalGF();
+          ">
             <option value="" data-precio="" data-cat="otros">-- Crear gasto fijo manual --</option>
             ${optionsHTML}
           </select>
@@ -975,13 +986,24 @@ function openAgregarGastoFijo() {
           </div>
         </div>
         
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Cantidad <span class="required">*</span></label>
+            <input class="form-control" type="number" id="gf-cantidad" value="1" min="0.01" step="any" oninput="calcTotalGF()" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Valor Unitario <span class="required">*</span></label>
+            <input class="form-control" type="number" id="gf-unitario" placeholder="0" min="0" step="any" oninput="calcTotalGF()" />
+          </div>
+        </div>
+        
         <div class="form-group">
-          <label class="form-label">Monto <span class="required">*</span></label>
-          <input class="form-control" type="number" id="gf-monto" placeholder="0" min="0" />
+          <label class="form-label">Monto Total</label>
+          <input class="form-control" type="number" id="gf-monto" placeholder="0" readonly style="background:var(--bg-subtle); font-weight:bold; color:var(--text-primary)" />
         </div>
 
         <div style="background:var(--info-bg);border:1px solid rgba(0,212,255,.2);border-radius:var(--radius-md);padding:var(--space-3);font-size:var(--text-xs);color:var(--info-fg)">
-          💡 Los gastos fijos se suman automáticamente al total de gastos aprobados del proyecto.
+          💡 El monto total se descontará de los ingresos automáticamente en la ganancia real (Utilidad).
         </div>
       </div>
     </div>
@@ -990,25 +1012,108 @@ function openAgregarGastoFijo() {
       <button class="btn btn-primary" id="btn-guardar-gf">💾 Guardar Gasto Fijo</button>
     </div>
   `, { size: 'lg' });
+  
+  window.calcTotalGF = function() {
+    const qty = parseFloat(document.getElementById('gf-cantidad').value) || 0;
+    const unit = parseFloat(document.getElementById('gf-unitario').value) || 0;
+    document.getElementById('gf-monto').value = (qty * unit).toFixed(2);
+  };
 
   modal.querySelector('#btn-guardar-gf').addEventListener('click', () => {
     const sel = modal.querySelector('#gf-predefinido');
     const desc = modal.querySelector('#gf-desc').value.trim();
-    const monto = parseFloat(modal.querySelector('#gf-monto').value);
+    const qty = parseFloat(modal.querySelector('#gf-cantidad').value);
+    const unit = parseFloat(modal.querySelector('#gf-unitario').value);
     const cat = modal.querySelector('#gf-cat').value;
     
     if (!desc) { Toast.warning('La descripción es obligatoria'); return; }
-    if (isNaN(monto) || monto < 0) { Toast.warning('Monto inválido'); return; }
+    if (isNaN(qty) || qty <= 0) { Toast.warning('Cantidad inválida'); return; }
+    if (isNaN(unit) || unit < 0) { Toast.warning('Valor unitario inválido'); return; }
     
     try {
       Financiero.agregarGastoFijo(SOL.id, {
         gastoDefectoId: sel.value || 'custom',
         descripcion: desc,
         categoria: cat,
-        monto: monto
+        cantidad: qty,
+        valorUnitario: unit
       });
       close();
       Toast.success('Gasto fijo agregado correctamente');
+      reload();
+    } catch(e) { Toast.error(e.message); }
+  });
+}
+
+function openEditarGastoFijo(gastoId) {
+  const gf = (SOL.financiero?.gastosFijos || []).find(g => g.id === gastoId);
+  if (!gf) return;
+
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">✏️ Editar Gasto Fijo</div><button class="modal-close" data-modal-close>✕</button></div>
+    <div class="modal-body">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Descripción <span class="required">*</span></label>
+            <input class="form-control" id="egf-desc" value="${escHtml(gf.descripcion)}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Categoría</label>
+            <select class="form-control" id="egf-cat">
+              ${CATEGORIAS_GASTO.map(c => `<option value="${c.id}" ${c.id===gf.categoria?'selected':''}>${c.emoji} ${c.label}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Cantidad <span class="required">*</span></label>
+            <input class="form-control" type="number" id="egf-cantidad" value="${gf.cantidad || 1}" min="0.01" step="any" oninput="calcTotalEGF()" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Valor Unitario <span class="required">*</span></label>
+            <input class="form-control" type="number" id="egf-unitario" value="${gf.valorUnitario !== undefined ? gf.valorUnitario : (gf.monto||0)}" min="0" step="any" oninput="calcTotalEGF()" />
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">Monto Total</label>
+          <input class="form-control" type="number" id="egf-monto" value="${gf.monto||0}" readonly style="background:var(--bg-subtle); font-weight:bold; color:var(--text-primary)" />
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+      <button class="btn btn-primary" id="btn-editar-gf">💾 Guardar Cambios</button>
+    </div>
+  `, { size: 'lg' });
+  
+  window.calcTotalEGF = function() {
+    const qty = parseFloat(document.getElementById('egf-cantidad').value) || 0;
+    const unit = parseFloat(document.getElementById('egf-unitario').value) || 0;
+    document.getElementById('egf-monto').value = (qty * unit).toFixed(2);
+  };
+
+  modal.querySelector('#btn-editar-gf').addEventListener('click', () => {
+    const desc = modal.querySelector('#egf-desc').value.trim();
+    const qty = parseFloat(modal.querySelector('#egf-cantidad').value);
+    const unit = parseFloat(modal.querySelector('#egf-unitario').value);
+    const cat = modal.querySelector('#egf-cat').value;
+    
+    if (!desc) { Toast.warning('La descripción es obligatoria'); return; }
+    if (isNaN(qty) || qty <= 0) { Toast.warning('Cantidad inválida'); return; }
+    if (isNaN(unit) || unit < 0) { Toast.warning('Valor unitario inválido'); return; }
+    
+    try {
+      Financiero.editarGastoFijo(SOL.id, gastoId, {
+        descripcion: desc,
+        categoria: cat,
+        cantidad: qty,
+        valorUnitario: unit
+      });
+      close();
+      Toast.success('Gasto fijo actualizado correctamente');
       reload();
     } catch(e) { Toast.error(e.message); }
   });
