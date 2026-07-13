@@ -146,7 +146,11 @@
 
     tbody.innerHTML = cuentas.map(c => {
       const u = getUserById(c.usuarioId);
-      const proj = Solicitudes.getById(c.proyectoId);
+      const proj = c.proyectoId ? Solicitudes.getById(c.proyectoId) : null;
+      const nombreMostrar = c.nombreContratista || u?.nombre || 'Desconocido';
+      const docMostrar = c.documentoContratista ? `<div style="font-size:var(--text-xs);color:var(--text-muted)">ID: ${escHtml(c.documentoContratista)}</div>` : '';
+      const projMostrar = proj ? `<a href="detalle-proyecto.html?id=${c.proyectoId}" style="color:var(--primary-400);text-decoration:none;font-weight:500">${escHtml(proj.titulo)}</a>` 
+                               : `<span style="color:var(--text-secondary);font-style:italic">${escHtml(c.proyectoNombreRespaldo || 'Evento Desconocido')}</span>`;
       
       let estUI = { bg: 'var(--bg-subtle)', fg: 'var(--text-secondary)', label: 'Pendiente', icon: '⏳' };
       if (c.estado === 'aprobado') estUI = { bg: 'rgba(59,130,246,.1)', fg: 'var(--primary-500)', label: 'Aprobado (Por Pagar)', icon: '✅' };
@@ -178,13 +182,16 @@
         <tr>
           ${isAdmin ? `<td>
             <div style="display:flex;align-items:center;gap:6px">
-              <div class="avatar avatar-sm" style="background:${avatarColor(u?.nombre||'')}">${Fmt.initials(u?.nombre||'?')}</div>
-              <span style="font-size:var(--text-sm);font-weight:600">${escHtml(u?.nombre||'Desconocido')}</span>
+              <div class="avatar avatar-sm" style="background:${avatarColor(nombreMostrar)}">${Fmt.initials(nombreMostrar)}</div>
+              <div>
+                <span style="font-size:var(--text-sm);font-weight:600">${escHtml(nombreMostrar)}</span>
+                ${docMostrar}
+              </div>
             </div>
           </td>` : ''}
           <td style="font-size:var(--text-sm)">${Fmt.date(c.creadoEn)}</td>
-          <td style="font-size:var(--text-sm);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(proj?.titulo||'Desconocido')}">
-            <a href="detalle-proyecto.html?id=${c.proyectoId}" style="color:var(--primary-400);text-decoration:none;font-weight:500">${escHtml(proj?.titulo||'Proyecto Desconocido')}</a>
+          <td style="font-size:var(--text-sm);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(proj?.titulo || c.proyectoNombreRespaldo || '')}">
+            ${projMostrar}
           </td>
           <td style="font-size:var(--text-sm)">${escHtml(c.concepto)}</td>
           <td style="text-align:right;font-family:var(--font-display);font-weight:700;color:var(--text-primary)">${Fmt.currency(c.monto)}</td>

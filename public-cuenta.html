@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portal de Contratistas — Gestión Deportiva</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <style>
+    body { background: var(--bg-base); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-4); font-family: var(--font-sans); }
+    .public-container { background: var(--bg-elevated); width: 100%; max-width: 600px; border-radius: var(--radius-2xl); box-shadow: var(--shadow-2xl); overflow: hidden; border: 1px solid var(--border-subtle); }
+    .public-header { background: linear-gradient(135deg, var(--primary-500), var(--accent-violet)); padding: var(--space-6); text-align: center; color: white; }
+    .public-logo { font-size: 3rem; margin-bottom: var(--space-2); }
+    .public-title { font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; margin: 0; letter-spacing: -0.02em; }
+    .public-subtitle { font-size: var(--text-sm); opacity: 0.85; margin-top: 4px; }
+    .public-body { padding: var(--space-6); }
+    
+    .form-group { margin-bottom: var(--space-4); }
+    .form-label { display: block; font-size: var(--text-sm); font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+    .form-control { width: 100%; background: var(--bg-overlay); border: 1px solid var(--border-default); color: var(--text-primary); padding: 12px 16px; border-radius: var(--radius-lg); font-size: var(--text-base); transition: all 0.2s; }
+    .form-control:focus { border-color: var(--primary-400); outline: none; box-shadow: 0 0 0 3px rgba(88,101,242,0.15); }
+    
+    .success-state { text-align: center; padding: var(--space-8) var(--space-4); display: none; }
+    .success-icon { font-size: 4rem; color: var(--success-fg); margin-bottom: var(--space-4); animation: scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    @keyframes scaleIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+  </style>
+</head>
+<body>
+
+<div id="toast-container"></div>
+
+<div class="public-container" id="form-container">
+  <div class="public-header">
+    <div class="public-logo">🏆</div>
+    <h1 class="public-title">Gestión DIBER</h1>
+    <div class="public-subtitle">Recepción de Cuentas de Cobro / Honorarios</div>
+  </div>
+  
+  <div class="public-body" id="form-body">
+    <div style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-5);text-align:center;line-height:1.5">
+      Por favor, completa el siguiente formulario para enviar tu cuenta de cobro al área administrativa.
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Nombre Completo <span style="color:var(--danger-fg)">*</span></label>
+      <input type="text" id="pc-nombre" class="form-control" placeholder="Ej. Juan Pérez" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Documento de Identidad <span style="color:var(--danger-fg)">*</span></label>
+      <input type="text" id="pc-doc" class="form-control" placeholder="Cédula o NIT" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Evento / Proyecto <span style="color:var(--danger-fg)">*</span></label>
+      <select id="pc-proyecto" class="form-control" style="margin-bottom:8px">
+        <option value="">Cargando eventos...</option>
+      </select>
+      <input type="text" id="pc-proyecto-respaldo" class="form-control" placeholder="¿No aparece tu evento? Escríbelo aquí" style="display:none;font-size:var(--text-sm);padding:8px 12px;background:var(--bg-subtle)" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Concepto del Cobro <span style="color:var(--danger-fg)">*</span></label>
+      <textarea id="pc-concepto" class="form-control" rows="2" placeholder="Ej. Honorarios por servicio de cronometraje"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Valor Total a Cobrar <span style="color:var(--danger-fg)">*</span></label>
+      <div style="position:relative">
+        <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-weight:600">$</span>
+        <input type="number" id="pc-monto" class="form-control" style="padding-left:36px" placeholder="0" min="0" step="any" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Soporte Documental (Enlace a Drive, PDF, etc.)</label>
+      <input type="url" id="pc-soporte" class="form-control" placeholder="https://..." />
+      <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:6px">Si tienes una cuenta de cobro en PDF, súbela a Google Drive o similar y pega el enlace aquí. Asegúrate de que tenga permisos públicos.</div>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1.1rem;margin-top:var(--space-4)" id="btn-submit" onclick="submitCuenta()">
+      Enviar Cuenta de Cobro 🚀
+    </button>
+  </div>
+
+  <div class="success-state" id="success-state">
+    <div class="success-icon">✅</div>
+    <h2 class="public-title" style="color:var(--text-primary);margin-bottom:12px">¡Enviada con éxito!</h2>
+    <p style="color:var(--text-secondary);line-height:1.6;font-size:var(--text-sm)">Tu cuenta de cobro ha sido enviada al área administrativa para su respectiva revisión y pago.</p>
+    <button class="btn btn-secondary" style="margin-top:var(--space-6)" onclick="resetForm()">Enviar otra cuenta</button>
+  </div>
+</div>
+
+<!-- Firebase App (solo para sincronizar proyectos localmente) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/solicitudes.js"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    // Intentar sincronizar datos desde Firebase para obtener la lista de proyectos en un dispositivo nuevo
+    if (typeof FireSync !== 'undefined') {
+      await FireSync.init();
+      setTimeout(loadProyectos, 1500); // Dar un poco de tiempo para descargar
+    }
+    loadProyectos();
+
+    document.getElementById('pc-proyecto').addEventListener('change', (e) => {
+      const resp = document.getElementById('pc-proyecto-respaldo');
+      if (e.target.value === 'otro') {
+        resp.style.display = 'block';
+      } else {
+        resp.style.display = 'none';
+        resp.value = '';
+      }
+    });
+  });
+
+  function loadProyectos() {
+    const sel = document.getElementById('pc-proyecto');
+    const proyectos = (Store.get('solicitudes') || []).filter(s => !['cancelado', 'completado'].includes(s.estado));
+    
+    let html = '<option value="">Selecciona el evento...</option>';
+    if (proyectos.length > 0) {
+      proyectos.forEach(p => {
+        html += `<option value="${p.id}">${p.titulo}</option>`;
+      });
+    } else {
+      html = '<option value="">(No se encontraron eventos cargados)</option>';
+    }
+    html += '<option value="otro">👉 Otro evento (no está en la lista)</option>';
+    
+    // Solo actualizar si realmente cambió, para no borrar la selección actual del usuario
+    if (sel.innerHTML !== html) {
+      const val = sel.value;
+      sel.innerHTML = html;
+      if (val) sel.value = val;
+    }
+  }
+
+  function submitCuenta() {
+    const btn = document.getElementById('btn-submit');
+    const nombre = document.getElementById('pc-nombre').value.trim();
+    const doc = document.getElementById('pc-doc').value.trim();
+    const pid = document.getElementById('pc-proyecto').value;
+    const presp = document.getElementById('pc-proyecto-respaldo').value.trim();
+    const concepto = document.getElementById('pc-concepto').value.trim();
+    const monto = parseFloat(document.getElementById('pc-monto').value);
+    const soporte = document.getElementById('pc-soporte').value.trim();
+
+    if (!nombre || !doc || !pid || !concepto || isNaN(monto) || monto <= 0) {
+      Toast.warning('Por favor, completa todos los campos requeridos (*)');
+      return;
+    }
+
+    if (pid === 'otro' && !presp) {
+      Toast.warning('Por favor escribe el nombre del evento');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = 'Enviando... ⏳';
+
+    try {
+      CuentasCobro.crear({
+        nombre,
+        documento: doc,
+        proyectoId: pid === 'otro' ? null : pid,
+        proyectoNombreRespaldo: presp,
+        concepto,
+        monto,
+        soporte
+      });
+
+      setTimeout(() => {
+        document.getElementById('form-body').style.display = 'none';
+        document.getElementById('success-state').style.display = 'block';
+      }, 800);
+
+    } catch (e) {
+      Toast.error('Error al enviar: ' + e.message);
+      btn.disabled = false;
+      btn.innerHTML = 'Enviar Cuenta de Cobro 🚀';
+    }
+  }
+
+  function resetForm() {
+    document.getElementById('pc-nombre').value = '';
+    document.getElementById('pc-doc').value = '';
+    document.getElementById('pc-proyecto').value = '';
+    document.getElementById('pc-proyecto-respaldo').value = '';
+    document.getElementById('pc-proyecto-respaldo').style.display = 'none';
+    document.getElementById('pc-concepto').value = '';
+    document.getElementById('pc-monto').value = '';
+    document.getElementById('pc-soporte').value = '';
+    
+    document.getElementById('form-body').style.display = 'block';
+    document.getElementById('success-state').style.display = 'none';
+    
+    const btn = document.getElementById('btn-submit');
+    btn.disabled = false;
+    btn.innerHTML = 'Enviar Cuenta de Cobro 🚀';
+  }
+</script>
+</body>
+</html>

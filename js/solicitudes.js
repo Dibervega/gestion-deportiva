@@ -710,12 +710,22 @@ const CierreEvento = {
 // ============================================================
 const CuentasCobro = {
   crear(datos) {
-    const user = Auth.getCurrentUser();
+    const user = typeof Auth !== 'undefined' ? Auth.getCurrentUser() : null;
     const cuentas = Store.get('cuentasCobro') || [];
+    
+    // Si viene nombre/documento explícito (desde público), los usamos.
+    // De lo contrario, usamos los datos del usuario logueado.
+    const nombre = datos.nombre || (user ? user.nombre : 'Desconocido');
+    const documento = datos.documento || '';
+    const userId = user ? user.id : 'publico';
+
     const nueva = {
       id: generateId(),
-      usuarioId: user.id,
+      usuarioId: userId,
+      nombreContratista: nombre,
+      documentoContratista: documento,
       proyectoId: datos.proyectoId,
+      proyectoNombreRespaldo: datos.proyectoNombreRespaldo || '',
       monto: parseFloat(datos.monto) || 0,
       concepto: datos.concepto || '',
       soporte: datos.soporte || '',
@@ -728,8 +738,10 @@ const CuentasCobro = {
     };
     cuentas.push(nueva);
     Store.set('cuentasCobro', cuentas);
-    // Notificar admin
-    addNotification('finanzas', `Nueva cuenta de cobro enviada por ${user.nombre}: ${Fmt.currency(nueva.monto)}`);
+    // Notificar admin si hay sesión
+    if (typeof addNotification === 'function' && user) {
+      addNotification('finanzas', `Nueva cuenta de cobro enviada por ${nombre}: ${Fmt.currency(nueva.monto)}`);
+    }
     return nueva;
   },
 
