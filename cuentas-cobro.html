@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cuentas de Cobro — Gestión Deportiva</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+</head>
+<body>
+<div id="app-loader"><div class="loader-logo">🚀 Gestión DIBER</div><div class="loader-bar"><div class="loader-bar-fill"></div></div></div>
+<div id="toast-container"></div>
+
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main-content">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page-content" id="page-content" style="display:none;max-width:1200px;margin:0 auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-5);flex-wrap:wrap;gap:var(--space-3)">
+        <h2 style="font-family:var(--font-display);font-size:1.5rem">Mis Cuentas de Cobro</h2>
+        <button class="btn btn-primary" onclick="openCrearCuenta()">+ Subir Cuenta</button>
+      </div>
+
+      <!-- Resumen (solo admin) -->
+      <div id="admin-summary" style="display:none;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:var(--space-4);margin-bottom:var(--space-6)">
+        <div class="card" style="padding:var(--space-4);border-top:3px solid var(--warning-fg)">
+          <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700">Por Revisar</div>
+          <div style="font-size:1.5rem;font-weight:800;font-family:var(--font-display)" id="kpi-pendientes">0</div>
+        </div>
+        <div class="card" style="padding:var(--space-4);border-top:3px solid var(--success-fg)">
+          <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700">Aprobadas / Por Pagar</div>
+          <div style="font-size:1.5rem;font-weight:800;font-family:var(--font-display)" id="kpi-aprobadas">0</div>
+        </div>
+        <div class="card" style="padding:var(--space-4);border-top:3px solid var(--primary-500)">
+          <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700">Pagadas (Mes actual)</div>
+          <div style="font-size:1.5rem;font-weight:800;font-family:var(--font-display)" id="kpi-pagadas">0</div>
+        </div>
+      </div>
+
+      <!-- Filtros (solo admin) -->
+      <div id="admin-filters" style="display:none;margin-bottom:var(--space-4);gap:var(--space-3);flex-wrap:wrap">
+        <select class="form-control" id="filter-estado" style="max-width:200px" onchange="renderCuentas()">
+          <option value="all">Todos los estados</option>
+          <option value="pendiente" selected>⏳ Pendientes</option>
+          <option value="aprobado">✅ Aprobados</option>
+          <option value="pagado">💰 Pagados</option>
+          <option value="rechazado">❌ Rechazados</option>
+        </select>
+        <select class="form-control" id="filter-user" style="max-width:250px" onchange="renderCuentas()">
+          <option value="all">Todos los colaboradores</option>
+        </select>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden">
+        <div class="table-responsive">
+          <table class="table" style="width:100%">
+            <thead>
+              <tr>
+                <th id="th-colaborador" style="display:none">Colaborador</th>
+                <th>Fecha</th>
+                <th>Proyecto</th>
+                <th>Concepto</th>
+                <th style="text-align:right">Monto</th>
+                <th style="text-align:center">Estado</th>
+                <th style="text-align:center">Soporte</th>
+                <th style="text-align:right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="cuentas-tbody">
+              <!-- Renderizado dinámico -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/solicitudes.js"></script>
+<script src="js/shared.js"></script>
+
+<script>
+  let isAdmin = false;
+  let currentUser = null;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!initPage('cuentas', { title: 'Cuentas de Cobro', subtitle: 'Recepción y gestión de pagos a colaboradores' })) return;
+    
+    currentUser = Auth.getCurrentUser();
+    isAdmin = Auth.can('all');
+
+    if (isAdmin) {
+      document.getElementById('admin-summary').style.display = 'grid';
+      document.getElementById('admin-filters').style.display = 'flex';
+      document.getElementById('th-colaborador').style.display = 'table-cell';
+      
+      const users = Store.get('users') || [];
+      const selUser = document.getElementById('filter-user');
+      users.forEach(u => {
+        selUser.innerHTML += `<option value="${u.id}">${u.nombre}</option>`;
+      });
+    } else {
+      document.querySelector('h2').textContent = 'Mis Cuentas de Cobro';
+    }
+
+    renderCuentas();
+    document.getElementById('page-content').style.display = 'block';
+  });
+
+  function renderCuentas() {
+    const tbody = document.getElementById('cuentas-tbody');
+    let cuentas = CuentasCobro.getAll();
+
+    if (!isAdmin) {
+      cuentas = cuentas.filter(c => c.usuarioId === currentUser.id);
+    } else {
+      const fEstado = document.getElementById('filter-estado').value;
+      const fUser = document.getElementById('filter-user').value;
+      
+      if (fEstado !== 'all') cuentas = cuentas.filter(c => c.estado === fEstado);
+      if (fUser !== 'all') cuentas = cuentas.filter(c => c.usuarioId === fUser);
+      
+      // Actualizar KPIs admin (ignorar filtros para kpis)
+      const allC = CuentasCobro.getAll();
+      document.getElementById('kpi-pendientes').textContent = allC.filter(c => c.estado === 'pendiente').length;
+      document.getElementById('kpi-aprobadas').textContent = allC.filter(c => c.estado === 'aprobado').length;
+      
+      const mesActual = new Date().getMonth();
+      document.getElementById('kpi-pagadas').textContent = Fmt.currency(allC.filter(c => c.estado === 'pagado' && new Date(c.pagadoEn).getMonth() === mesActual).reduce((s,c) => s + c.monto, 0));
+    }
+
+    // Ordenar más recientes primero
+    cuentas.sort((a,b) => new Date(b.creadoEn) - new Date(a.creadoEn));
+
+    if (!cuentas.length) {
+      tbody.innerHTML = `<tr><td colspan="${isAdmin?8:7}" style="text-align:center;padding:var(--space-6);color:var(--text-muted)">No hay cuentas de cobro para mostrar.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = cuentas.map(c => {
+      const u = getUserById(c.usuarioId);
+      const proj = Solicitudes.getById(c.proyectoId);
+      
+      let estUI = { bg: 'var(--bg-subtle)', fg: 'var(--text-secondary)', label: 'Pendiente', icon: '⏳' };
+      if (c.estado === 'aprobado') estUI = { bg: 'rgba(59,130,246,.1)', fg: 'var(--primary-500)', label: 'Aprobado (Por Pagar)', icon: '✅' };
+      if (c.estado === 'pagado') estUI = { bg: 'var(--success-bg)', fg: 'var(--success-fg)', label: 'Pagado', icon: '💰' };
+      if (c.estado === 'rechazado') estUI = { bg: 'var(--danger-bg)', fg: 'var(--danger-fg)', label: 'Rechazado', icon: '❌' };
+
+      let actionsHtml = '';
+      if (isAdmin) {
+        if (c.estado === 'pendiente') {
+          actionsHtml = `
+            <button class="btn btn-ghost btn-sm" style="color:var(--success-fg);font-size:.7rem" onclick="cambiarEstadoCuenta('${c.id}', 'aprobado')">✅ Aprobar</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--danger-fg);font-size:.7rem" onclick="rechazarCuenta('${c.id}')">❌ Rechazar</button>
+          `;
+        } else if (c.estado === 'aprobado') {
+          actionsHtml = `
+            <button class="btn btn-success btn-sm" style="font-size:.7rem" onclick="pagarCuenta('${c.id}')">💰 Marcar Pagado</button>
+            <button class="btn btn-ghost btn-sm" style="font-size:.7rem" onclick="cambiarEstadoCuenta('${c.id}', 'pendiente')">↩ Revertir</button>
+          `;
+        } else if (c.estado === 'pagado') {
+          actionsHtml = `<span style="font-size:.7rem;color:var(--text-muted)">Pagado el ${Fmt.date(c.pagadoEn)}</span>`;
+        }
+      }
+
+      if (!isAdmin && c.estado === 'pendiente') {
+         actionsHtml = `<button class="btn btn-ghost btn-sm" style="color:var(--danger-fg);font-size:.7rem" onclick="eliminarCuenta('${c.id}')">🗑️ Eliminar</button>`;
+      }
+
+      return `
+        <tr>
+          ${isAdmin ? `<td>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div class="avatar avatar-sm" style="background:${avatarColor(u?.nombre||'')}">${Fmt.initials(u?.nombre||'?')}</div>
+              <span style="font-size:var(--text-sm);font-weight:600">${escHtml(u?.nombre||'Desconocido')}</span>
+            </div>
+          </td>` : ''}
+          <td style="font-size:var(--text-sm)">${Fmt.date(c.creadoEn)}</td>
+          <td style="font-size:var(--text-sm);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(proj?.titulo||'Desconocido')}">
+            <a href="detalle-proyecto.html?id=${c.proyectoId}" style="color:var(--primary-400);text-decoration:none;font-weight:500">${escHtml(proj?.titulo||'Proyecto Desconocido')}</a>
+          </td>
+          <td style="font-size:var(--text-sm)">${escHtml(c.concepto)}</td>
+          <td style="text-align:right;font-family:var(--font-display);font-weight:700;color:var(--text-primary)">${Fmt.currency(c.monto)}</td>
+          <td style="text-align:center">
+            <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:.7rem;font-weight:600;background:${estUI.bg};color:${estUI.fg}">
+              ${estUI.icon} ${estUI.label}
+            </span>
+            ${c.estado === 'rechazado' && c.motivoRechazo ? `<div style="font-size:.65rem;color:var(--danger-fg);margin-top:2px">${escHtml(c.motivoRechazo)}</div>` : ''}
+          </td>
+          <td style="text-align:center">
+            ${c.soporte ? `<a href="${c.soporte}" target="_blank" class="btn btn-ghost btn-sm" style="font-size:.7rem">🔗 Ver URL</a>` : '<span style="font-size:.7rem;color:var(--text-muted)">Ninguno</span>'}
+          </td>
+          <td style="text-align:right">
+            <div style="display:flex;justify-content:flex-end;gap:4px">
+              ${actionsHtml}
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function openCrearCuenta() {
+    const proyectos = (Store.get('solicitudes') || []).filter(s => !['cancelado'].includes(s.estado));
+
+    const { modal, close } = Modal.open(`
+      <div class="modal-header"><div class="modal-title">🧾 Subir Cuenta de Cobro</div><button class="modal-close" data-modal-close>✕</button></div>
+      <div class="modal-body">
+        <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+          <div class="form-group">
+            <label class="form-label">Proyecto / Evento <span class="required">*</span></label>
+            <select class="form-control" id="cc-proyecto">
+              <option value="">Selecciona un proyecto</option>
+              ${proyectos.map(p => `<option value="${p.id}">${escHtml(p.titulo)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Monto a Cobrar <span class="required">*</span></label>
+              <input class="form-control" type="number" id="cc-monto" min="0" step="any" placeholder="0" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Soporte (URL / Enlace Drive)</label>
+              <input class="form-control" id="cc-soporte" placeholder="https://..." />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Concepto <span class="required">*</span></label>
+            <textarea class="form-control" id="cc-concepto" rows="2" placeholder="Honorarios por servicio de..."></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-modal-close>Cancelar</button>
+        <button class="btn btn-primary" id="btn-crear-cc">Enviara a Revisión</button>
+      </div>
+    `);
+
+    modal.querySelector('#btn-crear-cc').addEventListener('click', () => {
+      const pid = modal.querySelector('#cc-proyecto').value;
+      const m = parseFloat(modal.querySelector('#cc-monto').value);
+      const conc = modal.querySelector('#cc-concepto').value.trim();
+      const sop = modal.querySelector('#cc-soporte').value.trim();
+
+      if (!pid || isNaN(m) || m <= 0 || !conc) {
+        Toast.warning('Debes seleccionar el proyecto, ingresar un monto válido y un concepto.');
+        return;
+      }
+
+      try {
+        CuentasCobro.crear({ proyectoId: pid, monto: m, concepto: conc, soporte: sop });
+        close();
+        Toast.success('Cuenta enviada a revisión');
+        renderCuentas();
+      } catch(e) { Toast.error(e.message); }
+    });
+  }
+
+  function cambiarEstadoCuenta(id, estado) {
+    try {
+      CuentasCobro.cambiarEstado(id, estado);
+      Toast.success('Estado actualizado');
+      renderCuentas();
+    } catch(e) { Toast.error(e.message); }
+  }
+
+  function rechazarCuenta(id) {
+    const motivo = prompt('Motivo de rechazo:');
+    if (motivo === null) return;
+    try {
+      CuentasCobro.cambiarEstado(id, 'rechazado', { motivo });
+      Toast.success('Cuenta rechazada');
+      renderCuentas();
+    } catch(e) { Toast.error(e.message); }
+  }
+
+  function pagarCuenta(id) {
+    confirmDialog('Al marcar como pagado, se registrará este pago automáticamente como Gasto Variable en el Control Financiero del proyecto asociado. ¿Confirmar pago?').then(ok => {
+      if (!ok) return;
+      try {
+        CuentasCobro.cambiarEstado(id, 'pagado', { registrarGasto: true });
+        Toast.success('Cuenta marcada como Pagada y gasto registrado');
+        renderCuentas();
+      } catch(e) { Toast.error(e.message); }
+    });
+  }
+
+  function eliminarCuenta(id) {
+    confirmDialog('¿Eliminar esta cuenta de cobro?').then(ok => {
+      if(!ok) return;
+      try {
+        CuentasCobro.eliminar(id);
+        Toast.success('Cuenta eliminada');
+        renderCuentas();
+      } catch(e) { Toast.error(e.message); }
+    });
+  }
+</script>
+</body>
+</html>

@@ -704,3 +704,117 @@ const CierreEvento = {
       .sort((a,b) => new Date(b.creadoEn) - new Date(a.creadoEn));
   },
 };
+
+// ============================================================
+// CUENTAS DE COBRO
+// ============================================================
+const CuentasCobro = {
+  crear(datos) {
+    const user = Auth.getCurrentUser();
+    const cuentas = Store.get('cuentasCobro') || [];
+    const nueva = {
+      id: generateId(),
+      usuarioId: user.id,
+      proyectoId: datos.proyectoId,
+      monto: parseFloat(datos.monto) || 0,
+      concepto: datos.concepto || '',
+      soporte: datos.soporte || '',
+      estado: 'pendiente', // pendiente, aprobado, pagado, rechazado
+      motivoRechazo: '',
+      creadoEn: new Date().toISOString(),
+      actualizadoEn: new Date().toISOString(),
+      pagadoEn: null,
+      pagadoPor: null
+    };
+    cuentas.push(nueva);
+    Store.set('cuentasCobro', cuentas);
+    // Notificar admin
+    addNotification('finanzas', `Nueva cuenta de cobro enviada por ${user.nombre}: ${Fmt.currency(nueva.monto)}`);
+    return nueva;
+  },
+
+  getAll() {
+    return Store.get('cuentasCobro') || [];
+  },
+
+  getByUsuario(usuarioId) {
+    return this.getAll().filter(c => c.usuarioId === usuarioId);
+  },
+
+  getByProyecto(proyectoId) {
+    return this.getAll().filter(c => c.proyectoId === proyectoId);
+  },
+
+  cambiarEstado(cuentaId, estado, opciones = {}) {
+    if (!Auth.can('all')) throw new Error('Solo admin puede cambiar el estado de las cuentas de cobro');
+    const cuentas = Store.get('cuentasCobro') || [];
+    const idx = cuentas.findIndex(c => c.id === cuentaId);
+    if (idx < 0) throw new Error('Cuenta de cobro no encontrada');
+
+    const cuenta = cuentas[idx];
+    cuenta.estado = estado;
+    cuenta.actualizadoEn = new Date().toISOString();
+
+    if (estado === 'rechazado') {
+      cuenta.motivoRechazo = opciones.motivo || '';
+    } else if (estado === 'pagado') {
+      cuenta.pagadoEn = new Date().toISOString();
+      cuenta.pagadoPor = Auth.getCurrentUser().id;
+      
+      // Auto-registrar como gasto variable en el proyecto asociado
+      if (opciones.registrarGasto && cuenta.proyectoId) {
+        try {
+          const u = getUserById(cuenta.usuarioId);
+          const nombreUsuario = u ? u.nombre : 'Desconocido';
+          const gastoDesc = `Pago cuenta de cobro - ${nombreUsuario}: ${cuenta.concepto}`;
+          
+          Financiero.agregarGasto(cuenta.proyectoId, {
+            descripcion: gastoDesc,
+            categoria: 'honorarios', // O una genérica si no existe
+            subtotal: cuenta.monto,
+            impuesto: 0,
+            fecha: new Date().toISOString().split('T')[0],
+            proveedor: nombreUsuario,
+            notas: `Generado automáticamente desde módulo Cuentas de Cobro. Ref: ${cuenta.id}`,
+            comprobante: cuenta.soporte || ''
+          });
+          
+          // Aprobar el gasto inmediatamente ya que lo está registrando un admin
+          const sols = Store.get('solicitudes') || [];
+          const sIdx = sols.findIndex(s => s.id === cuenta.proyectoId);
+          if (sIdx >= 0 && sols[sIdx].financiero?.gastos?.length) {
+            const lastGasto = sols[sIdx].financiero.gastos[sols[sIdx].financiero.gastos.length - 1];
+            Financiero.aprobarGasto(cuenta.proyectoId, lastGasto.id);
+          }
+        } catch(e) {
+          console.error('Error auto-registrando gasto:', e);
+        }
+      }
+    }
+
+    Store.set('cuentasCobro', cuentas);
+    return cuenta;
+  },
+
+  eliminar(cuentaId) {
+    const cuentas = Store.get('cuentasCobro') || [];
+    const idx = cuentas.findIndex(c => c.id === cuentaId);
+    if (idx < 0) return;
+    
+    const cuenta = cuentas[idx];
+    const user = Auth.getCurrentUser();
+    
+    // Solo el creador si está pendiente, o un admin puede eliminar
+    if (cuenta.usuarioId !== user.id && !Auth.can('all')) {
+      throw new Error('No puedes eliminar cuentas de cobro de otras personas');
+    }
+    if (cuenta.estado !== 'pendiente' && !Auth.can('all')) {
+      throw new Error('No puedes eliminar una cuenta que ya ha sido procesada');
+    }
+
+    cuentas.splice(idx, 1);
+    Store.set('cuentasCobro', cuentas);
+  }
+};
+
+window.CuentasCobro = CuentasCobro;

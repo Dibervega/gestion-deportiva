@@ -399,6 +399,12 @@ function renderFinancieroHTML(res) {
         <div id="pagos-list">${renderPagosHTML(fin.pagos||[])}</div>
       </div>
 
+      <!-- Cuentas de Cobro -->
+      <div style="margin-bottom:var(--space-5)">
+        <div style="font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-3)">🧾 Cuentas de Cobro Recibidas</div>
+        <div id="cuentas-cobro-list">${renderCuentasCobroProyectoHTML(SOL.id)}</div>
+      </div>
+
       <!-- Gastos Fijos -->
       <div style="margin-bottom:var(--space-5)">
         <div style="font-size:var(--text-sm);font-weight:600;margin-bottom:var(--space-3)">📌 Registro de Gastos Fijos</div>
@@ -586,6 +592,44 @@ function renderGastosHTML(gastos) {
           ${canWrite ? `<button class="btn btn-ghost btn-sm" style="font-size:.65rem;color:var(--text-secondary);padding:4px 8px" onclick="openEditarGasto('${g.id}')">✏️ Editar</button>` : ''}
           ${canWrite ? `<button class="btn btn-ghost btn-icon btn-sm" style="font-size:.65rem;color:var(--danger-fg)" onclick="eliminarGasto('${g.id}')" data-tooltip="Eliminar">🗑️</button>` : ''}
         </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCuentasCobroProyectoHTML(proyectoId) {
+  const cuentas = (CuentasCobro.getAll() || []).filter(c => c.proyectoId === proyectoId);
+  if (!cuentas.length) return `<div style="text-align:center;padding:var(--space-6);color:var(--text-muted);font-size:var(--text-sm)">Sin cuentas de cobro recibidas</div>`;
+
+  return cuentas.map(c => {
+    const u = getUserById(c.usuarioId);
+    let estUI = { bg: 'var(--bg-subtle)', fg: 'var(--text-secondary)', label: 'Pendiente', icon: '⏳' };
+    if (c.estado === 'aprobado') estUI = { bg: 'rgba(59,130,246,.1)', fg: 'var(--primary-500)', label: 'Aprobado (Por Pagar)', icon: '✅' };
+    if (c.estado === 'pagado') estUI = { bg: 'var(--success-bg)', fg: 'var(--success-fg)', label: 'Pagado', icon: '💰' };
+    if (c.estado === 'rechazado') estUI = { bg: 'var(--danger-bg)', fg: 'var(--danger-fg)', label: 'Rechazado', icon: '❌' };
+
+    return `<div class="expense-row" style="flex-direction:column;align-items:stretch;gap:var(--space-2)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-2)">
+        <div style="display:flex;align-items:center;gap:var(--space-3)">
+          <div class="avatar avatar-sm" style="background:${avatarColor(u?.nombre||'')}">${Fmt.initials(u?.nombre||'?')}</div>
+          <div>
+            <div style="font-size:var(--text-sm);font-weight:600">${escHtml(u?.nombre||'Desconocido')}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">
+              ${Fmt.date(c.creadoEn)} · Concepto: ${escHtml(c.concepto)}
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--space-2);flex-shrink:0">
+          <div style="text-align:right;font-weight:700;font-family:var(--font-display);color:var(--text-primary)">
+            ${Fmt.currency(c.monto)}
+          </div>
+          <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:.7rem;font-weight:600;background:${estUI.bg};color:${estUI.fg}">
+            ${estUI.icon} ${estUI.label}
+          </span>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:var(--space-1)">
+        <a href="cuentas-cobro.html" class="btn btn-ghost btn-sm" style="font-size:.65rem;color:var(--primary-400)">Ir a Cuentas de Cobro →</a>
       </div>
     </div>`;
   }).join('');
