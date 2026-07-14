@@ -421,7 +421,8 @@ function semaforoColor(fechaStr) {
 // Saber si el usuario actual puede ver datos financieros
 function canSeeFinancials() {
   const user = typeof Auth !== 'undefined' ? Auth.getCurrentUser() : null;
-  return !user || user.rol === 'admin';
+  // Permitir que admins y coordinadores vean la sección financiera
+  return user ? (user.rol === 'admin' || user.rol === 'coordinador') : false;
 }
 
 // Saber si el usuario puede ver TODOS los proyectos (admin o rol sin restricción de áreas)

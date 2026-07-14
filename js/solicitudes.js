@@ -547,7 +547,7 @@ const Financiero = {
   },
 
   getResumenGlobal() {
-    const data = Store.get('solicitudes') || [];
+    const data = typeof Solicitudes !== 'undefined' ? Solicitudes.getAll() : (Store.get('solicitudes') || []);
     const totalCotizado   = data.reduce((s,x) => s + (x.financiero?.valorCotizado||0), 0);
     const totalAnticipo   = data.reduce((s,x) => {
       const p = (x.financiero?.pagos||[]).reduce((sum, pago) => sum + (pago.monto||0), 0);
