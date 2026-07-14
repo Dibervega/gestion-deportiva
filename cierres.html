@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cierres y Reportes — Gestión Deportiva</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+</head>
+<body>
+
+<div id="app-loader"><div class="loader-logo">🏆 Gestión Deportiva</div><div class="loader-bar"><div class="loader-bar-fill"></div></div></div>
+<div id="toast-container"></div>
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+
+    <main class="page-content">
+      
+      <!-- KPIs -->
+      <div class="stats-grid" style="margin-bottom: var(--space-6)">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(88,101,242,.15);color:var(--primary-400)">📄</div>
+          <div class="stat-info">
+            <div class="stat-value" id="kpi-total">0</div>
+            <div class="stat-label">Cierres Totales</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(16,185,129,.15);color:var(--success-fg)">💰</div>
+          <div class="stat-info">
+            <div class="stat-value" id="kpi-utilidad">$0</div>
+            <div class="stat-label">Utilidad Neta (Total)</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(245,158,11,.15);color:var(--accent-amber)">⏳</div>
+          <div class="stat-info">
+            <div class="stat-value" id="kpi-pendientes">0</div>
+            <div class="stat-label">Pendientes por Contabilidad</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:rgba(59,130,246,.15);color:var(--primary-500)">✅</div>
+          <div class="stat-info">
+            <div class="stat-value" id="kpi-aprobados">0</div>
+            <div class="stat-label">Aprobados por Contabilidad</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de Cierres -->
+      <div class="card">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px">
+          <div class="card-title">🗂️ Historial de Cierres Financieros</div>
+          <div style="display:flex;gap:8px">
+            <select class="form-control" style="width:200px" id="filtro-estado" onchange="renderCierres()">
+              <option value="todos">Todos los Estados</option>
+              <option value="revision">Pendiente Contabilidad</option>
+              <option value="aprobado_contabilidad">Aprobado Contabilidad</option>
+            </select>
+            <input type="text" class="form-control" id="filtro-texto" placeholder="🔍 Buscar por proyecto..." style="width:200px" oninput="renderCierres()" />
+          </div>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div class="table-responsive">
+            <table class="table" style="width:100%;text-align:left;white-space:nowrap" id="tabla-cierres">
+              <thead>
+                <tr>
+                  <th>Referencia</th>
+                  <th>Evento / Proyecto</th>
+                  <th>Fecha de Cierre</th>
+                  <th>Preparado Por</th>
+                  <th style="text-align:right">Utilidad Neta</th>
+                  <th>Estado Contable</th>
+                  <th style="text-align:center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="cierres-tbody">
+                <!-- Data goes here -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/email.js"></script>
+<script src="js/solicitudes.js"></script>
+<script src="js/shared.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initPage('cierres', { title: 'Cierres / Reportes', subtitle: 'Historial de eventos cerrados financieramente' })) return;
+  // Solo los admin o personas autorizadas a ver finanzas pueden acceder
+  if (!canSeeFinancials()) {
+    Toast.warning('Acceso restringido al módulo financiero');
+    window.location.href = 'dashboard.html';
+    return;
+  }
+  
+  renderCierres();
+});
+
+function renderCierres() {
+  const tbody = document.getElementById('cierres-tbody');
+  const filtroEstado = document.getElementById('filtro-estado').value;
+  const filtroTexto = document.getElementById('filtro-texto').value.toLowerCase();
+  
+  // Extraer todos los cierres desde el array global de solicitudes
+  let cierres = CierreEvento.getAll();
+  
+  // Variables KPIs
+  let sumUtilidad = 0;
+  let countPendientes = 0;
+  let countAprobados = 0;
+
+  // KPIs se calculan antes del filtro de texto para mantener totales globales o filtrados por estado? 
+  // Mejor sobre todos los cierres.
+  cierres.forEach(c => {
+    sumUtilidad += (c.utilidadNeta || 0);
+    if (c.estado === 'revision') countPendientes++;
+    if (c.estado === 'aprobado_contabilidad') countAprobados++;
+  });
+
+  document.getElementById('kpi-total').textContent = cierres.length;
+  document.getElementById('kpi-utilidad').textContent = Fmt.currency(sumUtilidad, true); // true = compact (Ej. $1.5M)
+  document.getElementById('kpi-pendientes').textContent = countPendientes;
+  document.getElementById('kpi-aprobados').textContent = countAprobados;
+
+  // Aplicar filtros a la tabla
+  if (filtroEstado !== 'todos') {
+    cierres = cierres.filter(c => c.estado === filtroEstado);
+  }
+  if (filtroTexto) {
+    cierres = cierres.filter(c => 
+      c.solicitud?.titulo?.toLowerCase().includes(filtroTexto) || 
+      c.id.toLowerCase().includes(filtroTexto)
+    );
+  }
+
+  if (!cierres.length) {
+    tbody.innerHTML = `<tr><td colspan="7">
+      <div class="empty-state" style="padding:var(--space-6)">
+        <div class="empty-state-title">No hay cierres generados aún</div>
+        <p style="color:var(--text-muted);font-size:var(--text-sm)">Usa el botón "Generar Cierre" dentro de un proyecto para que aparezca aquí.</p>
+      </div>
+    </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = cierres.map(c => {
+    const s = c.solicitud;
+    const isAprobado = c.estado === 'aprobado_contabilidad';
+    const badgeHtml = isAprobado 
+      ? `<span class="badge badge-approved">✅ Aprobado Contabilidad</span>`
+      : `<span class="badge badge-pending">⏳ Revisión Contabilidad</span>`;
+      
+    const autor = getUserById(c.preparadoPor);
+    const nombreAutor = autor ? autor.nombre : 'Desconocido';
+
+    return `
+      <tr>
+        <td><span style="font-family:var(--font-mono);color:var(--primary-400);font-weight:600">${c.id}</span></td>
+        <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis">
+          <a href="detalle-proyecto.html?id=${s.id}" style="font-weight:600;color:var(--text-primary);text-decoration:none">${escHtml(s.titulo)}</a>
+        </td>
+        <td style="font-size:var(--text-sm)">${Fmt.date(c.creadoEn)}</td>
+        <td style="font-size:var(--text-sm)">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div class="avatar avatar-sm" style="background:${avatarColor(nombreAutor)}">${Fmt.initials(nombreAutor)}</div>
+            <span>${escHtml(nombreAutor)}</span>
+          </div>
+        </td>
+        <td style="text-align:right;font-weight:700;font-family:var(--font-display);color:${c.utilidadNeta >= 0 ? 'var(--success-fg)' : 'var(--danger-fg)'}">
+          ${Fmt.currency(c.utilidadNeta)}
+        </td>
+        <td>${badgeHtml}</td>
+        <td style="text-align:center">
+          <a href="reporte-evento.html?id=${s.id}" class="btn btn-primary btn-sm" target="_blank" style="padding:4px 10px;font-size:0.75rem">
+            📄 Ver Reporte
+          </a>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+</script>
+</body>
+</html>
