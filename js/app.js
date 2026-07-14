@@ -26,22 +26,18 @@ let db, auth;
     console.log('Migración: Usuarios limpiados para Producción.');
   }
 
-  // MIGRACIÓN 2: Asegurar contraseñas en usuarios existentes
-  const isMigrated2 = localStorage.getItem('migracion_prod_2');
-  if (!isMigrated2) {
-    const users = JSON.parse(localStorage.getItem('gestion_users') || '[]');
-    let changed = false;
-    users.forEach(u => {
-      if (!u.password) {
-        u.password = '123456';
-        if (u.email === 'admin@gestion.com') { u.password = 'admin123'; u.requirePasswordChange = false; }
-        else { u.requirePasswordChange = true; }
-        changed = true;
-      }
-    });
-    if (changed) localStorage.setItem('gestion_users', JSON.stringify(users));
-    localStorage.setItem('migracion_prod_2', 'true');
-  }
+  // MIGRACIÓN 2: Asegurar contraseñas en usuarios existentes (corre en cada recarga para proteger vs Firebase)
+  const users = JSON.parse(localStorage.getItem('gestion_users') || '[]');
+  let changed = false;
+  users.forEach(u => {
+    if (!u.password) {
+      u.password = '123456';
+      if (u.email === 'admin@gestion.com') { u.password = 'admin123'; u.requirePasswordChange = false; }
+      else { u.requirePasswordChange = true; }
+      changed = true;
+    }
+  });
+  if (changed) localStorage.setItem('gestion_users', JSON.stringify(users));
 })();
 
 function initFirebase() {

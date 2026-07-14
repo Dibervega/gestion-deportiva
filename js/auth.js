@@ -23,8 +23,15 @@ const Auth = {
     if (!user) throw new Error('Usuario no encontrado o inactivo');
 
     // Validación estricta de la contraseña almacenada
-    // Si por alguna razón no tiene clave (usuarios antiguos), se intenta 123456
-    const validPassword = user.password || '123456';
+    // Si por alguna razón no tiene clave (usuarios antiguos de Firebase), se intenta 123456
+    // Y si es el admin, su clave por defecto es admin123
+    let validPassword = user.password;
+    if (!validPassword) {
+      validPassword = user.email === 'admin@gestion.com' ? 'admin123' : '123456';
+      if (user.email !== 'admin@gestion.com') {
+        user.requirePasswordChange = true;
+      }
+    }
     
     if (password !== validPassword) {
       throw new Error('Contraseña incorrecta');
