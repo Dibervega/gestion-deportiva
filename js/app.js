@@ -13,6 +13,20 @@ const AppState = {
 };
 
 let db, auth;
+
+// MIGRACIÓN A PRODUCCIÓN: Forzar limpieza de usuarios (dejar solo admin@gestion.com)
+(function forceProdWipe() {
+  const isMigrated = localStorage.getItem('migracion_prod_1');
+  if (!isMigrated) {
+    const demoUsers = [
+      { id: 'admin1', nombre: 'Admin Principal', email: 'admin@gestion.com', rol: 'admin', areas: [], activo: true },
+    ];
+    localStorage.setItem('gestion_users', JSON.stringify(demoUsers));
+    localStorage.setItem('migracion_prod_1', 'true');
+    console.log('Migración: Usuarios limpiados para Producción.');
+  }
+})();
+
 function initFirebase() {
   try {
     if (typeof firebase === 'undefined') throw new Error('Firebase SDK no cargado');
@@ -163,19 +177,21 @@ const Store = {
 
 // ── Demo Data ─────────────────────────────────────────────────
 function initDemoData() {
+  // Limpiar usuarios de prueba si existían (forzar en este update)
+  const demoUsers = [
+    { id: 'admin1', nombre: 'Admin Principal', email: 'admin@gestion.com', rol: 'admin', areas: [], activo: true },
+  ];
+  const currentUsers = Store.get('users') || [];
+  if (currentUsers.length > 1) {
+    Store.set('users', demoUsers);
+  } else if (!Store.get('initialized')) {
+    Store.set('users', demoUsers);
+  }
+
   if (Store.get('initialized')) return;
 
   // Inicializar áreas por defecto
   Store.set('areas', AREAS_DEFAULT);
-
-  const demoUsers = [
-    { id: 'admin1', nombre: 'Admin Sistema', email: 'admin@empresa.com', rol: 'admin', areas: [], activo: true },
-    { id: 'user1',  nombre: 'Carlos Ruiz',   email: 'cronometraje@empresa.com', rol: 'coordinador', areas: ['cronometraje'], activo: true },
-    { id: 'user2',  nombre: 'Ana Gómez',     email: 'medalleria@empresa.com',   rol: 'coordinador', areas: ['medalleria'],   activo: true },
-    { id: 'user3',  nombre: 'Luis Torres',   email: 'diseno@empresa.com',       rol: 'coordinador', areas: ['diseno'],       activo: true },
-    { id: 'user4',  nombre: 'María Soto',    email: 'fotografia@empresa.com',   rol: 'coordinador', areas: ['fotografia'],   activo: true },
-  ];
-  Store.set('users', demoUsers);
 
   const ahora = new Date();
   const hace3 = new Date(ahora - 3 * 86400000);
