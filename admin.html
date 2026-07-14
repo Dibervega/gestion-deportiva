@@ -277,9 +277,30 @@ function renderUsers() {
       <div class="user-card-actions">
         <button class="btn btn-ghost btn-icon btn-sm" onclick="toggleUser('${u.id}')" data-tooltip="${u.activo?'Desactivar':'Activar'}">${u.activo ? '🔴' : '🟢'}</button>
         <button class="btn btn-ghost btn-icon btn-sm" onclick="editUser('${u.id}')" data-tooltip="Editar">✏️</button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteUser('${u.id}', '${u.nombre}')" data-tooltip="Eliminar">🗑️</button>
       </div>
     </div>`;
   }).join('');
+}
+
+async function deleteUser(id, nombre) {
+  if (id === 'admin1') {
+    Toast.error('No puedes eliminar al administrador principal');
+    return;
+  }
+  
+  const confirmed = await confirmDialog(`¿Estás seguro de que deseas eliminar permanentemente a "${nombre}"? Esta acción no se puede deshacer.`, 'Eliminar Usuario');
+  if (!confirmed) return;
+
+  const users = Store.get('users') || [];
+  const idx = users.findIndex(u => u.id === id);
+  if (idx < 0) return;
+  
+  users.splice(idx, 1);
+  Store.set('users', users);
+  
+  Toast.success(`Usuario ${nombre} eliminado`);
+  renderUsers();
 }
 
 function openNuevoUsuario() {
