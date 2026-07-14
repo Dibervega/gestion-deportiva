@@ -16,22 +16,41 @@ const Auth = {
     return null;
   },
 
-  // Inicia sesión demo (sin Firebase)
+  // Inicia sesión local
   async loginDemo(email, password) {
     const users = Store.get('users') || [];
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.activo);
     if (!user) throw new Error('Usuario no encontrado o inactivo');
 
-    // En modo demo, cualquier contraseña funciona para los usuarios precargados
-    // En producción con Firebase Auth se validaría contra Firebase
-    if (!['gestion123', 'admin123', '123456'].includes(password) &&
-        password !== user.email.split('@')[0]) {
+    // Validación estricta de la contraseña almacenada
+    // Si por alguna razón no tiene clave (usuarios antiguos), se intenta 123456
+    const validPassword = user.password || '123456';
+    
+    if (password !== validPassword) {
       throw new Error('Contraseña incorrecta');
     }
 
     this._currentUser = user;
     sessionStorage.setItem('gestion_session', JSON.stringify(user));
     return user;
+  },
+
+  // Cambiar contraseña obligatoria
+  async changePassword(newPassword) {
+    const u = this.getCurrentUser();
+    if (!u) throw new Error('No hay sesión activa');
+    
+    const users = Store.get('users') || [];
+    const idx = users.findIndex(us => us.id === u.id);
+    if (idx >= 0) {
+      users[idx].password = newPassword;
+      users[idx].requirePasswordChange = false;
+      Store.set('users', users);
+      
+      // Actualizar sesión actual
+      this._currentUser = users[idx];
+      sessionStorage.setItem('gestion_session', JSON.stringify(users[idx]));
+    }
   },
 
   // Cierra sesión
@@ -124,7 +143,14 @@ function initLoginPage() {
     btn.innerHTML = '<span class="spinner"></span> Ingresando...';
 
     try {
-      await Auth.loginDemo(email, password);
+      const user = await Auth.loginDemo(email, password);
+      
+      if (user.requirePasswordChange) {
+        btn.innerHTML = '🔒 Requiere cambio de clave';
+        showPasswordChangeModal(user);
+        return;
+      }
+      
       btn.innerHTML = '✅ ¡Bienvenido!';
       setTimeout(() => { window.location.href = 'dashboard.html'; }, 600);
     } catch(err) {
@@ -137,6 +163,50 @@ function initLoginPage() {
   });
 
   hideLoader();
+}
+
+function showPasswordChangeModal(user) {
+  // Utilizamos la utilidad Modal asumiendo que Modal.open existe en shared.js (sí existe)
+  const { modal, close } = Modal.open(`
+    <div class="modal-header"><div class="modal-title">🔒 Cambio Obligatorio de Contraseña</div></div>
+    <div class="modal-body">
+      <p style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-4)">
+        Hola <b>${escHtml(user.nombre)}</b>, por seguridad debes cambiar la contraseña que te asignó el administrador antes de poder acceder al sistema.
+      </p>
+      <div class="form-group"><label class="form-label">Nueva Contraseña</label>
+        <input class="form-control" type="password" id="cp-new" placeholder="Escribe tu nueva clave secreta" />
+      </div>
+      <div class="form-group"><label class="form-label">Confirmar Contraseña</label>
+        <input class="form-control" type="password" id="cp-confirm" placeholder="Vuelve a escribirla" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" id="btn-save-pass" style="width:100%">Guardar y Entrar</button>
+    </div>
+  `, { closeable: false }); // No se puede cerrar sin cambiarla
+
+  modal.querySelector('#btn-save-pass').addEventListener('click', async () => {
+    const newPass = modal.querySelector('#cp-new').value;
+    const confirm = modal.querySelector('#cp-confirm').value;
+    
+    if (!newPass) { Toast.warning('Debes escribir una contraseña'); return; }
+    if (newPass.length < 6) { Toast.warning('La contraseña debe tener mínimo 6 caracteres'); return; }
+    if (newPass !== confirm) { Toast.warning('Las contraseñas no coinciden'); return; }
+    
+    const btn = modal.querySelector('#btn-save-pass');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+    
+    try {
+      await Auth.changePassword(newPass);
+      btn.textContent = '✅ ¡Guardado!';
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 600);
+    } catch (e) {
+      Toast.error('Hubo un error guardando la clave');
+      btn.disabled = false;
+      btn.textContent = 'Guardar y Entrar';
+    }
+  });
 }
 
 // ── Init en Login Page ───────────────────────────────────────

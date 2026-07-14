@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -302,6 +302,9 @@ function openNuevoUsuario() {
               ${ROLES.map(r => `<option value="${r.id}">${r.label}</option>`).join('')}
             </select>
           </div>
+          <div class="form-group"><label class="form-label">Contraseña Inicial <span class="required">*</span></label>
+            <input class="form-control" type="text" id="nu-password" placeholder="Contraseña temporal" />
+          </div>
         </div>
         <div class="form-group"><label class="form-label">Áreas de trabajo</label>
           <div class="areas-selector">
@@ -309,7 +312,7 @@ function openNuevoUsuario() {
           </div>
         </div>
         <div style="background:var(--info-bg);border:1px solid rgba(0,212,255,.2);border-radius:var(--radius-md);padding:var(--space-3)">
-          <p style="font-size:var(--text-xs);color:var(--info-fg)">💡 En modo demo la contraseña es el username del email. Con Firebase Auth el usuario recibirá un email de bienvenida.</p>
+          <p style="font-size:var(--text-xs);color:var(--info-fg)">💡 El usuario se verá obligado a cambiar esta contraseña en su primer inicio de sesión.</p>
         </div>
       </div>
     </div>
@@ -319,14 +322,27 @@ function openNuevoUsuario() {
     </div>
   `);
   modal.querySelector('#btn-crear-user').addEventListener('click', () => {
-    const nombre = modal.querySelector('#nu-nombre').value.trim();
-    const email  = modal.querySelector('#nu-email').value.trim();
-    const rol    = modal.querySelector('#nu-rol').value;
-    const areas  = [...modal.querySelectorAll('.area-chip.selected')].map(c => c.dataset.area);
-    if (!nombre || !email) { Toast.warning('Nombre y email son obligatorios'); return; }
+    const nombre   = modal.querySelector('#nu-nombre').value.trim();
+    const email    = modal.querySelector('#nu-email').value.trim();
+    const rol      = modal.querySelector('#nu-rol').value;
+    const password = modal.querySelector('#nu-password').value.trim();
+    const areas    = [...modal.querySelectorAll('.area-chip.selected')].map(c => c.dataset.area);
+    
+    if (!nombre || !email || !password) { Toast.warning('Nombre, email y contraseña son obligatorios'); return; }
+    
     const users = Store.get('users') || [];
     if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) { Toast.error('Ya existe ese email'); return; }
-    Store.push('users', { id: generateId(), nombre, email, rol, areas, activo: true });
+    
+    Store.push('users', { 
+      id: generateId(), 
+      nombre, 
+      email, 
+      rol, 
+      areas, 
+      activo: true, 
+      password: password, 
+      requirePasswordChange: true 
+    });
     close(); Toast.success(`Usuario ${nombre} creado`); renderUsers();
   });
 }
@@ -364,6 +380,12 @@ function editUser(id) {
             ${areas.map(a => `<div class="area-chip ${uAreas.includes(a.id)?'selected':''}" data-area="${a.id}" onclick="this.classList.toggle('selected')">${a.emoji} ${a.nombre}</div>`).join('')}
           </div>
         </div>
+        <div style="background:var(--bg-subtle);border:1px dashed var(--border-default);padding:var(--space-3);border-radius:var(--radius-md);margin-top:var(--space-2)">
+          <div class="form-group" style="margin:0"><label class="form-label">Restablecer Contraseña (Opcional)</label>
+            <input class="form-control" type="text" id="eu-password" placeholder="Dejar en blanco para no cambiar" />
+            <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">Si ingresas una clave aquí, el usuario tendrá que cambiarla al iniciar sesión.</div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -374,9 +396,17 @@ function editUser(id) {
   modal.querySelector('#btn-guardar-user').addEventListener('click', () => {
     const idx2 = users.findIndex(us => us.id === id);
     if (idx2 < 0) return;
+    
     users[idx2].nombre = modal.querySelector('#eu-nombre').value.trim() || users[idx2].nombre;
     users[idx2].rol    = modal.querySelector('#eu-rol').value;
     users[idx2].areas  = [...modal.querySelectorAll('.area-chip.selected')].map(c => c.dataset.area);
+    
+    const newPass = modal.querySelector('#eu-password').value.trim();
+    if (newPass) {
+      users[idx2].password = newPass;
+      users[idx2].requirePasswordChange = true;
+    }
+    
     Store.set('users', users);
     close(); Toast.success('Usuario actualizado'); renderUsers();
   });
