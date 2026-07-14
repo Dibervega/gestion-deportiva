@@ -108,7 +108,7 @@ const FireSync = {
   PATHS: {
     solicitudes:    'solicitudes',
     notificaciones: 'notificaciones',
-    usuarios:       'usuarios',
+    users:          'usuarios', // Mapear Store.set('users') a la ruta 'usuarios' en Firebase
     bot_users:      'bot_users',
   },
 
@@ -140,7 +140,22 @@ const FireSync = {
         if (snap.exists()) {
           const val = snap.val();
           const data = val ? (Array.isArray(val) ? val : Object.values(val)).filter(Boolean) : [];
+          
+          if (storeKey === 'users') {
+            const localUsers = JSON.parse(localStorage.getItem('gestion_users') || '[]');
+            if (localUsers.length > data.length) {
+              // Local tiene más usuarios (no se sincronizaron antes por bug de path). 
+              // En lugar de sobrescribir, empujamos a Firebase.
+              this.syncWrite('users', localUsers);
+              continue;
+            }
+          }
+          
           if (data.length) localStorage.setItem('gestion_' + storeKey, JSON.stringify(data));
+        } else if (storeKey === 'users') {
+          // Si no hay datos en Firebase, empujamos los locales
+          const localUsers = JSON.parse(localStorage.getItem('gestion_users') || '[]');
+          if (localUsers.length) this.syncWrite('users', localUsers);
         }
       } catch(e) {
         console.warn('FireSync: no se pudo cargar ' + path + ':', e.message);
