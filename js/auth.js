@@ -147,6 +147,13 @@ function initLoginPage() {
     }
 
     btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Verificando conexión...';
+
+    // ⚠️ Esperar a que Firebase cargue los usuarios antes de validar
+    if (typeof FireSync !== 'undefined') {
+      await FireSync.waitForUsers(6000);
+    }
+
     btn.innerHTML = '<span class="spinner"></span> Ingresando...';
 
     try {

@@ -104,6 +104,29 @@ const ROLES = [
 const FireSync = {
   db: null,
   _ready: false,
+  _usersReady: false,     // true cuando los usuarios ya se cargaron desde Firebase
+  _usersReadyCallbacks: [], // callbacks esperando a que los usuarios estén listos
+
+  // Permite esperar a que los usuarios estén disponibles
+  waitForUsers(timeoutMs = 5000) {
+    if (this._usersReady) return Promise.resolve();
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        console.warn('FireSync.waitForUsers: timeout, usando datos locales');
+        resolve();
+      }, timeoutMs);
+      this._usersReadyCallbacks.push(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  },
+
+  _markUsersReady() {
+    this._usersReady = true;
+    this._usersReadyCallbacks.forEach(fn => fn());
+    this._usersReadyCallbacks = [];
+  },
 
   PATHS: {
     solicitudes:    'solicitudes',
@@ -116,6 +139,7 @@ const FireSync = {
     try {
       if (typeof firebase === 'undefined') {
         console.warn('Firebase SDK no disponible');
+        this._markUsersReady(); // no hay Firebase, usar datos locales
         return false;
       }
       if (!firebase.apps.length) {
@@ -123,12 +147,13 @@ const FireSync = {
       }
       this.db = firebase.database();
       this._ready = true;
-      await this._loadAll();
+      await this._loadAll(); // _loadAll llama _markUsersReady al terminar
       this._startListeners();
       console.log('Firebase conectado a botfather-8b715 (Realtime Database)');
       return true;
     } catch(e) {
       console.warn('FireSync error:', e.message);
+      this._markUsersReady(); // error, desbloquear login con datos locales
       return false;
     }
   },
@@ -157,6 +182,8 @@ const FireSync = {
         console.warn('FireSync: no se pudo cargar ' + path + ':', e.message);
       }
     }
+    // Marcar usuarios como listos SIEMPRE al terminar _loadAll
+    this._markUsersReady();
   },
 
   _startListeners() {
