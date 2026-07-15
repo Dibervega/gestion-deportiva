@@ -140,22 +140,18 @@ const FireSync = {
         if (snap.exists()) {
           const val = snap.val();
           const data = val ? (Array.isArray(val) ? val : Object.values(val)).filter(Boolean) : [];
-          
-          if (storeKey === 'users') {
-            const localUsers = JSON.parse(localStorage.getItem('gestion_users') || '[]');
-            if (localUsers.length > data.length) {
-              // Local tiene más usuarios (no se sincronizaron antes por bug de path). 
-              // En lugar de sobrescribir, empujamos a Firebase.
-              this.syncWrite('users', localUsers);
-              continue;
-            }
+          // Firebase siempre gana — escribe directamente en localStorage
+          if (data.length) {
+            localStorage.setItem('gestion_' + storeKey, JSON.stringify(data));
+            console.log(`FireSync: cargados ${data.length} registros de "${path}"`);
           }
-          
-          if (data.length) localStorage.setItem('gestion_' + storeKey, JSON.stringify(data));
         } else if (storeKey === 'users') {
-          // Si no hay datos en Firebase, empujamos los locales
+          // Si Firebase no tiene usuarios todavía, subimos los locales (primer uso)
           const localUsers = JSON.parse(localStorage.getItem('gestion_users') || '[]');
-          if (localUsers.length) this.syncWrite('users', localUsers);
+          if (localUsers.length) {
+            console.log('FireSync: subiendo usuarios locales a Firebase por primera vez...');
+            await this.syncWrite('users', localUsers);
+          }
         }
       } catch(e) {
         console.warn('FireSync: no se pudo cargar ' + path + ':', e.message);
@@ -183,6 +179,16 @@ const FireSync = {
         if (age < 30000 && typeof Toast !== 'undefined') {
           Toast.success('Nueva solicitud desde Telegram: ' + (sol.titulo || sol.cliente || ''));
         }
+      }
+    });
+
+    // Listener en tiempo real para usuarios — sincroniza cualquier cambio inmediatamente
+    this.db.ref('usuarios').on('value', snap => {
+      const val = snap.val();
+      const data = val ? (Array.isArray(val) ? val : Object.values(val)).filter(Boolean) : [];
+      if (data.length) {
+        localStorage.setItem('gestion_users', JSON.stringify(data));
+        console.log('FireSync: usuarios actualizados en tiempo real:', data.length);
       }
     });
 

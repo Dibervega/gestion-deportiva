@@ -14,30 +14,14 @@ const AppState = {
 
 let db, auth;
 
-// MIGRACIÓN A PRODUCCIÓN: Forzar limpieza de usuarios (dejar solo admin@gestion.com)
-(function forceProdWipe() {
-  const isMigrated = localStorage.getItem('migracion_prod_1');
-  if (!isMigrated) {
-    const demoUsers = [
-      { id: 'admin1', nombre: 'Admin Principal', email: 'admin@gestion.com', rol: 'admin', areas: [], activo: true, password: 'admin123', requirePasswordChange: false },
-    ];
-    localStorage.setItem('gestion_users', JSON.stringify(demoUsers));
-    localStorage.setItem('migracion_prod_1', 'true');
-    console.log('Migración: Usuarios limpiados para Producción.');
-  }
-
-  // MIGRACIÓN 2: Asegurar contraseñas en usuarios existentes (corre en cada recarga para proteger vs Firebase)
+// Asegura que el admin siempre exista en localStorage si no hay ningún usuario
+(function ensureAdminExists() {
   const users = JSON.parse(localStorage.getItem('gestion_users') || '[]');
-  let changed = false;
-  users.forEach(u => {
-    if (!u.password) {
-      u.password = '123456';
-      if (u.email === 'admin@gestion.com') { u.password = 'admin123'; u.requirePasswordChange = false; }
-      else { u.requirePasswordChange = true; }
-      changed = true;
-    }
-  });
-  if (changed) localStorage.setItem('gestion_users', JSON.stringify(users));
+  if (!users.length) {
+    localStorage.setItem('gestion_users', JSON.stringify([
+      { id: 'admin1', nombre: 'Admin Principal', email: 'admin@gestion.com', rol: 'admin', areas: [], activo: true, password: 'admin123', requirePasswordChange: false }
+    ]));
+  }
 })();
 
 function initFirebase() {
