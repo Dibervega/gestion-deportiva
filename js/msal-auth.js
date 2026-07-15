@@ -22,11 +22,16 @@ let _msalInstance = null;
 // ── Inicializar MSAL ──────────────────────────────────────────
 function getMsalInstance() {
   if (!_msalInstance) {
-    if (typeof msal === 'undefined') {
-      console.error('MSAL.js no está cargado');
+    // El bundle UMD local expone PublicClientApplication directamente en el scope global
+    const PCA = (typeof msal !== 'undefined' && msal.PublicClientApplication)
+      ? msal.PublicClientApplication
+      : (typeof PublicClientApplication !== 'undefined' ? PublicClientApplication : null);
+    
+    if (!PCA) {
+      console.error('MSAL.js no está cargado (PublicClientApplication no disponible)');
       return null;
     }
-    _msalInstance = new msal.PublicClientApplication(MSAL_CONFIG);
+    _msalInstance = new PCA(MSAL_CONFIG);
   }
   return _msalInstance;
 }
