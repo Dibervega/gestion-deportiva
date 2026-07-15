@@ -286,7 +286,10 @@ const Financiero = {
       creadoEn:         new Date().toISOString(),
     };
 
-    solicitudes[idx].financiero = solicitudes[idx].financiero || { gastos:[], comisiones:[] };
+    // Garantizar estructura completa del financiero antes de hacer push
+    solicitudes[idx].financiero = solicitudes[idx].financiero || {};
+    solicitudes[idx].financiero.gastos      = Array.isArray(solicitudes[idx].financiero.gastos)      ? solicitudes[idx].financiero.gastos      : [];
+    solicitudes[idx].financiero.comisiones  = Array.isArray(solicitudes[idx].financiero.comisiones)  ? solicitudes[idx].financiero.comisiones  : [];
     solicitudes[idx].financiero.gastos.push(nuevoGasto);
     solicitudes[idx].updatedAt = new Date().toISOString();
     Store.set('solicitudes', solicitudes);

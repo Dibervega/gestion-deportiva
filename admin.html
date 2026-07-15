@@ -385,8 +385,14 @@ function editUser(id) {
     <div class="modal-header"><div class="modal-title">✏️ Editar Usuario</div><button class="modal-close" data-modal-close>✕</button></div>
     <div class="modal-body">
       <div style="display:flex;flex-direction:column;gap:var(--space-4)">
-        <div class="form-group"><label class="form-label">Nombre</label>
-          <input class="form-control" id="eu-nombre" value="${escHtml(u.nombre)}" />
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Nombre completo</label>
+            <input class="form-control" id="eu-nombre" value="${escHtml(u.nombre)}" />
+          </div>
+          <div class="form-group"><label class="form-label">Email O365 <span class="required">*</span></label>
+            <input class="form-control" type="email" id="eu-email" value="${escHtml(u.email)}" placeholder="usuario@tuempresa.com" />
+            <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">Debe coincidir exactamente con la cuenta de Microsoft 365.</div>
+          </div>
         </div>
         <div class="form-group"><label class="form-label">Rol</label>
           <select class="form-control" id="eu-rol">
@@ -396,12 +402,6 @@ function editUser(id) {
         <div class="form-group"><label class="form-label">Áreas de trabajo</label>
           <div class="areas-selector">
             ${areas.map(a => `<div class="area-chip ${uAreas.includes(a.id)?'selected':''}" data-area="${a.id}" onclick="this.classList.toggle('selected')">${a.emoji} ${a.nombre}</div>`).join('')}
-          </div>
-        </div>
-        <div style="background:var(--bg-subtle);border:1px dashed var(--border-default);padding:var(--space-3);border-radius:var(--radius-md);margin-top:var(--space-2)">
-          <div class="form-group" style="margin:0"><label class="form-label">Restablecer Contraseña (Opcional)</label>
-            <input class="form-control" type="text" id="eu-password" placeholder="Dejar en blanco para no cambiar" />
-            <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">Si ingresas una clave aquí, el usuario tendrá que cambiarla al iniciar sesión.</div>
           </div>
         </div>
       </div>
@@ -414,17 +414,19 @@ function editUser(id) {
   modal.querySelector('#btn-guardar-user').addEventListener('click', () => {
     const idx2 = users.findIndex(us => us.id === id);
     if (idx2 < 0) return;
-    
+
+    const newEmail = modal.querySelector('#eu-email').value.trim().toLowerCase();
+    if (!newEmail || !newEmail.includes('@')) { Toast.warning('El email no es válido'); return; }
+
+    // Verificar que el email no esté en uso por otro usuario
+    const emailTaken = users.find(u2 => u2.email.toLowerCase() === newEmail && u2.id !== id);
+    if (emailTaken) { Toast.error('Ese email ya está registrado en otro usuario'); return; }
+
     users[idx2].nombre = modal.querySelector('#eu-nombre').value.trim() || users[idx2].nombre;
+    users[idx2].email  = newEmail;
     users[idx2].rol    = modal.querySelector('#eu-rol').value;
     users[idx2].areas  = [...modal.querySelectorAll('.area-chip.selected')].map(c => c.dataset.area);
-    
-    const newPass = modal.querySelector('#eu-password').value.trim();
-    if (newPass) {
-      users[idx2].password = newPass;
-      users[idx2].requirePasswordChange = true;
-    }
-    
+
     Store.set('users', users);
     close(); Toast.success('Usuario actualizado'); renderUsers();
   });
