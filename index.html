@@ -3,180 +3,271 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gestión DIBER — Iniciar Sesión</title>
-  <meta name="description" content="Sistema integral de gestión de solicitudes y proyectos para servicios deportivos." />
+  <title>Aire Libre y Aventura — Acceso</title>
+  <meta name="description" content="Sistema de gestión de proyectos y eventos deportivos." />
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/components.css" />
-  <link rel="stylesheet" href="css/pages.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
   <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Outfit', var(--font-sans), sans-serif;
+      background: #0a0f0a;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Fondo animado verde/negro */
+    .bg-glow {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(90,210,30,0.18) 0%, transparent 70%),
+                  radial-gradient(ellipse 60% 80% at 80% 100%, rgba(40,120,10,0.12) 0%, transparent 65%),
+                  radial-gradient(ellipse 40% 40% at 10% 80%, rgba(60,180,20,0.08) 0%, transparent 60%),
+                  #0a0f0a;
+    }
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(90,210,30,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(90,210,30,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    /* Orbs flotantes */
+    .orb {
+      position: fixed; border-radius: 50%;
+      filter: blur(80px); pointer-events: none; z-index: 0;
+      animation: float 8s ease-in-out infinite;
+    }
+    .orb-1 { width: 500px; height: 500px; top: -120px; left: -100px; background: rgba(90,210,30,0.12); animation-delay: 0s; }
+    .orb-2 { width: 380px; height: 380px; bottom: -80px; right: -80px; background: rgba(40,160,10,0.10); animation-delay: -4s; }
+    .orb-3 { width: 260px; height: 260px; top: 40%; left: 60%; background: rgba(120,240,40,0.07); animation-delay: -2s; }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) scale(1); }
+      50% { transform: translateY(-30px) scale(1.05); }
+    }
+
+    /* Tarjeta de login */
+    .login-card {
+      position: relative; z-index: 10;
+      width: 100%;
+      max-width: 420px;
+      margin: var(--space-4);
+      background: rgba(12, 18, 12, 0.85);
+      border: 1px solid rgba(90, 210, 30, 0.18);
+      border-radius: 24px;
+      padding: 48px 40px 44px;
+      backdrop-filter: blur(24px);
+      box-shadow:
+        0 0 0 1px rgba(90,210,30,0.06),
+        0 24px 80px rgba(0,0,0,0.6),
+        0 0 60px rgba(90,210,30,0.06) inset;
+      animation: cardIn 0.6s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(28px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0)   scale(1); }
+    }
+
+    /* Logo */
+    .logo-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 36px;
+    }
+    .logo-img {
+      width: 160px;
+      height: 160px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 24px rgba(90,210,30,0.35)) drop-shadow(0 0 8px rgba(90,210,30,0.2));
+      animation: logoPulse 3s ease-in-out infinite;
+    }
+    @keyframes logoPulse {
+      0%, 100% { filter: drop-shadow(0 0 20px rgba(90,210,30,0.35)) drop-shadow(0 0 8px rgba(90,210,30,0.2)); }
+      50% { filter: drop-shadow(0 0 36px rgba(90,210,30,0.55)) drop-shadow(0 0 16px rgba(90,210,30,0.35)); }
+    }
+
+    /* Divider */
+    .login-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(90,210,30,0.3), transparent);
+      margin-bottom: 28px;
+    }
+
+    /* Botón Microsoft */
     .ms-btn {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 12px;
       width: 100%;
-      padding: 14px 20px;
-      border: 1.5px solid rgba(255,255,255,0.15);
-      border-radius: var(--radius-lg);
-      background: rgba(255,255,255,0.06);
-      color: var(--text-primary);
-      font-size: var(--text-base);
+      padding: 15px 20px;
+      border: 1.5px solid rgba(90,210,30,0.25);
+      border-radius: 14px;
+      background: rgba(90,210,30,0.06);
+      color: #e8f5e0;
+      font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s ease;
-      font-family: var(--font-sans);
-      text-decoration: none;
-      margin-top: var(--space-2);
+      transition: all 0.22s ease;
+      font-family: 'Outfit', sans-serif;
+      letter-spacing: 0.02em;
     }
     .ms-btn:hover {
-      background: rgba(255,255,255,0.12);
-      border-color: rgba(255,255,255,0.3);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      background: rgba(90,210,30,0.14);
+      border-color: rgba(90,210,30,0.5);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(90,210,30,0.15), 0 0 0 1px rgba(90,210,30,0.12);
+      color: #fff;
     }
     .ms-btn:active { transform: translateY(0); }
-    .ms-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-    .ms-logo {
-      width: 22px; height: 22px; flex-shrink: 0;
-    }
-    .login-divider {
-      display: flex; align-items: center; gap: var(--space-3);
-      margin: var(--space-5) 0; color: var(--text-muted); font-size: var(--text-xs);
-    }
-    .login-divider::before, .login-divider::after {
-      content: ''; flex: 1; height: 1px; background: var(--border-subtle);
-    }
-    .login-info-box {
-      background: rgba(88,101,242,0.08);
-      border: 1px solid rgba(88,101,242,0.2);
-      border-radius: var(--radius-md);
-      padding: var(--space-3) var(--space-4);
-      font-size: var(--text-xs);
-      color: var(--text-secondary);
-      margin-top: var(--space-4);
-      line-height: 1.6;
-    }
+    .ms-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .ms-logo { width: 22px; height: 22px; flex-shrink: 0; }
+
+    /* Error */
     #login-error {
-      color: var(--danger-fg);
-      font-size: var(--text-sm);
+      color: #ff6b6b;
+      font-size: 0.8rem;
       text-align: center;
-      min-height: 20px;
+      min-height: 18px;
+      margin-top: 14px;
       white-space: pre-line;
-      margin-top: var(--space-3);
+      line-height: 1.5;
+    }
+
+    /* Footer */
+    .login-footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 0.72rem;
+      color: rgba(150,200,100,0.45);
+      letter-spacing: 0.04em;
+    }
+
+    /* Loader overlay */
+    #app-loader {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+      background: #0a0f0a;
+      transition: opacity 0.5s ease;
+    }
+    #app-loader.hidden { opacity: 0; pointer-events: none; }
+    .loader-logo-img {
+      width: 120px;
+      filter: drop-shadow(0 0 20px rgba(90,210,30,0.5));
+      animation: logoPulse 2s ease-in-out infinite;
+    }
+    .loader-bar {
+      width: 200px; height: 3px;
+      background: rgba(90,210,30,0.15);
+      border-radius: 99px; overflow: hidden;
+    }
+    .loader-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #5ad21e, #8aff44);
+      border-radius: 99px;
+      animation: loadBar 1.8s ease-in-out infinite;
+    }
+    @keyframes loadBar {
+      0% { width: 0%; margin-left: 0%; }
+      50% { width: 70%; margin-left: 15%; }
+      100% { width: 0%; margin-left: 100%; }
+    }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block; width: 16px; height: 16px;
+      border: 2px solid rgba(90,210,30,0.3);
+      border-top-color: #5ad21e;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 480px) {
+      .login-card { padding: 36px 24px 32px; margin: 16px; }
+      .logo-img { width: 130px; height: 130px; }
     }
   </style>
 </head>
 <body>
 
+<!-- Fondo -->
+<div class="bg-glow"></div>
+<div class="bg-grid"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
 <!-- Loader -->
 <div id="app-loader">
-  <div class="loader-logo">🏆 Gestión Deportiva</div>
+  <img src="img/logo.png" class="loader-logo-img" alt="Aire Libre y Aventura" />
   <div class="loader-bar"><div class="loader-bar-fill"></div></div>
-  <p style="color:var(--text-muted);font-size:var(--text-sm)">Conectando con Microsoft...</p>
 </div>
 
-<!-- Toast container -->
+<!-- Toast -->
 <div id="toast-container"></div>
 
-<!-- Login Page -->
-<div class="login-page">
+<!-- Tarjeta de Login -->
+<div class="login-card">
 
-  <!-- Panel Izquierdo (Hero) -->
-  <div class="login-hero">
-    <div class="login-hero-content">
-      <div class="login-hero-icon" style="background: linear-gradient(135deg, var(--primary-400), var(--accent-violet));">🚀</div>
-      <h1>Gestión DIBER</h1>
-      <p>Panel administrativo integral para la gestión de proyectos, solicitudes y control financiero.</p>
-
-      <div class="login-features">
-        <div class="login-feature">
-          <div class="login-feature-icon">📋</div>
-          <div class="login-feature-text">
-            <p>Solicitudes Centralizadas</p>
-            <span>Todas las áreas en un solo lugar</span>
-          </div>
-        </div>
-        <div class="login-feature">
-          <div class="login-feature-icon">📊</div>
-          <div class="login-feature-text">
-            <p>Seguimiento en Tiempo Real</p>
-            <span>Estado y progreso de cada proyecto</span>
-          </div>
-        </div>
-        <div class="login-feature">
-          <div class="login-feature-icon">💰</div>
-          <div class="login-feature-text">
-            <p>Control Financiero</p>
-            <span>Presupuesto, gastos y rentabilidad</span>
-          </div>
-        </div>
-        <div class="login-feature">
-          <div class="login-feature-icon">🔒</div>
-          <div class="login-feature-text">
-            <p>Acceso Seguro con Microsoft</p>
-            <span>Autenticación empresarial O365</span>
-          </div>
-        </div>
-      </div>
-    </div>
+  <!-- Logo -->
+  <div class="logo-wrap">
+    <img src="img/logo.png" class="logo-img" alt="Aire Libre y Aventura" />
   </div>
 
-  <!-- Panel Derecho (Form) -->
-  <div class="login-panel">
-    <div class="login-form-wrap">
+  <div class="login-divider"></div>
 
-      <div style="font-size:2.5rem; margin-bottom: var(--space-4); text-align:center">🚀</div>
-      <h2 class="login-title" style="text-align:center">Bienvenido</h2>
-      <p class="login-subtitle" style="text-align:center">Usa tu cuenta empresarial de Microsoft 365</p>
+  <!-- Botón Microsoft -->
+  <button class="ms-btn" id="ms-login-btn" onclick="iniciarSesionMicrosoft()">
+    <svg class="ms-logo" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
+      <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
+      <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
+      <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+    </svg>
+    Ingresar con Microsoft 365
+  </button>
 
-      <!-- Botón Microsoft -->
-      <button class="ms-btn" id="ms-login-btn" onclick="iniciarSesionMicrosoft()">
-        <!-- Logo oficial de Microsoft SVG -->
-        <svg class="ms-logo" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
-          <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
-          <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
-          <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
-          <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
-        </svg>
-        Entrar con Microsoft 365
-      </button>
+  <p id="login-error"></p>
 
-      <p id="login-error"></p>
-
-      <div class="login-info-box">
-        🔐 <strong>Acceso seguro.</strong> Ingresa con tu cuenta corporativa de Office 365.
-        Si no tienes acceso, contacta al administrador del sistema para que registre tu correo.
-      </div>
-
-    </div>
+  <div class="login-footer">
+    🔐 Acceso exclusivo para miembros del equipo
   </div>
+
 </div>
 
-<!-- MSAL.js — Archivo local (sin dependencia de CDN externo) -->
+<!-- Scripts -->
 <script src="js/msal-browser.min.js"></script>
-
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-
-<script src="js/firebase-config.js?v=8"></script>
-<script src="js/app.js?v=8"></script>
-<script src="js/shared.js?v=8"></script>
-<script src="js/auth.js?v=8"></script>
-<script src="js/msal-auth.js?v=8"></script>
+<script src="js/firebase-config.js?v=9"></script>
+<script src="js/app.js?v=9"></script>
+<script src="js/shared.js?v=9"></script>
+<script src="js/auth.js?v=9"></script>
+<script src="js/msal-auth.js?v=9"></script>
 
 <script>
-// ── Manejar respuesta de Microsoft al cargar la página ─────────
+function hideLoader() {
+  const l = document.getElementById('app-loader');
+  if (l) { l.classList.add('hidden'); setTimeout(() => l.remove(), 600); }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-  const errEl  = document.getElementById('login-error');
-  const btn    = document.getElementById('ms-login-btn');
+  const errEl = document.getElementById('login-error');
+  const btn   = document.getElementById('ms-login-btn');
 
   try {
-    // Intentar procesar la respuesta de Microsoft (si viene del redirect)
     const user = await handleMsalRedirect();
-
     if (user) {
-      // ✅ Login exitoso
       btn.innerHTML = `
         <svg class="ms-logo" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
           <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
@@ -184,17 +275,15 @@ document.addEventListener('DOMContentLoaded', async () => {
           <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
           <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
         </svg>
-        ✅ ¡Bienvenido, ${user.nombre.split(' ')[0]}!`;
-      setTimeout(() => { window.location.href = 'dashboard.html'; }, 800);
+        ✅ Bienvenido, ${user.nombre.split(' ')[0]}`;
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 700);
       return;
     }
   } catch (err) {
-    // Error: usuario no registrado u otro problema
     errEl.textContent = err.message;
     btn.disabled = false;
   }
 
-  // Si no hay sesión activa, mostrar la pantalla de login
   hideLoader();
 });
 
@@ -204,7 +293,7 @@ async function iniciarSesionMicrosoft() {
   errEl.textContent = '';
   btn.disabled = true;
   btn.innerHTML = `<span class="spinner"></span> Conectando con Microsoft...`;
-  await loginConMicrosoft(); // redirige al servidor de Microsoft
+  await loginConMicrosoft();
 }
 </script>
 
