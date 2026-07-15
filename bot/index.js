@@ -1,5 +1,5 @@
 // ============================================================
-// BOT DE TELEGRAM — Gestión Deportiva
+// BOT DE TELEGRAM — Gestión Aire Libre y Aventura
 // Procesa audios, crea solicitudes con IA y sincroniza Firebase
 // ============================================================
 
@@ -256,7 +256,7 @@ bot.start(async (ctx) => {
 
   await ctx.reply(
     `👋 ¡Hola, ${ctx.from.first_name}!\n\n` +
-    `Soy el asistente de *Gestión Deportiva* 🏆\n\n` +
+    `Soy el asistente de *Gestión Aire Libre y Aventura* 🏆\n\n` +
     `Puedes crearme solicitudes de evento simplemente enviando un 🎙️ *audio de voz* describiendo el evento.\n\n` +
     `*Comandos disponibles:*\n` +
     `🎙️ Audio → Crear solicitud automáticamente\n` +
@@ -548,7 +548,7 @@ bot.on(message('text'), async (ctx) => {
 });
 
 // ── Iniciar el bot ────────────────────────────────────────────
-console.log('🤖 Bot de Gestión Deportiva iniciando...');
+console.log('🤖 Bot de Gestión Aire Libre y Aventura iniciando...');
 bot.launch().then(() => {
   console.log('✅ Bot activo y escuchando');
 }).catch(err => {

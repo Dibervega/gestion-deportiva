@@ -3,174 +3,159 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Aire Libre y Aventura — Acceso</title>
+  <title>Gestión Aire Libre y Aventura — Acceso</title>
   <meta name="description" content="Sistema de gestión de proyectos y eventos deportivos." />
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/components.css" />
-  <link rel="stylesheet" href="css/pages.css" />
   <style>
-    /* ── Override: hero verde en lugar de morado ── */
-    .login-hero {
-      background: linear-gradient(135deg, #0d1f0d 0%, #162616 40%, #0f1a0f 100%) !important;
-      position: relative;
-    }
-    .login-hero::before {
-      content: '';
-      position: absolute; inset: 0;
-      background:
-        radial-gradient(circle at 25% 75%, rgba(90,210,30,0.22) 0%, transparent 55%),
-        radial-gradient(circle at 75% 20%, rgba(60,160,10,0.18) 0%, transparent 50%);
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #111314;
+      font-family: var(--font-sans, system-ui, sans-serif);
     }
 
-    /* Logo en el hero */
-    .hero-logo {
-      width: 160px;
-      height: 160px;
-      object-fit: contain;
-      margin: 0 auto var(--space-6);
-      display: block;
-      filter: drop-shadow(0 0 28px rgba(90,210,30,0.45)) drop-shadow(0 4px 16px rgba(0,0,0,0.6));
+    .login-wrap {
+      width: 100%;
+      max-width: 480px;
+      padding: 48px 40px;
+      margin: 20px;
     }
 
-    /* Quitar el emoji icon que había antes */
-    .login-hero-icon { display: none; }
+    .login-title {
+      font-size: 2.2rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 8px;
+    }
+
+    .login-subtitle {
+      font-size: 0.95rem;
+      color: #6b7280;
+      margin-bottom: 36px;
+    }
 
     /* Botón Microsoft */
-    .ms-login-btn {
+    .ms-btn {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 12px;
       width: 100%;
-      padding: 14px 20px;
-      border: 1.5px solid rgba(90,210,30,0.3);
-      border-radius: var(--radius-lg);
-      background: rgba(90,210,30,0.07);
-      color: var(--text-primary);
-      font-size: var(--text-base);
+      padding: 16px 24px;
+      border: 1.5px solid rgba(74, 160, 44, 0.45);
+      border-radius: 14px;
+      background: rgba(74, 160, 44, 0.1);
+      color: #e5e7eb;
+      font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
-      transition: all var(--transition-normal);
-      font-family: var(--font-sans);
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+      font-family: inherit;
+      letter-spacing: 0.01em;
     }
-    .ms-login-btn:hover {
-      background: rgba(90,210,30,0.15);
-      border-color: rgba(90,210,30,0.55);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(90,210,30,0.15);
+    .ms-btn:hover {
+      background: rgba(74, 160, 44, 0.18);
+      border-color: rgba(74, 160, 44, 0.7);
+      transform: translateY(-1px);
     }
-    .ms-login-btn:active { transform: translateY(0); }
-    .ms-login-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .ms-btn:active { transform: translateY(0); }
+    .ms-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     .ms-logo { width: 22px; height: 22px; flex-shrink: 0; }
 
+    /* Error */
     #login-error {
-      color: var(--danger-fg, #ff6b6b);
-      font-size: var(--text-xs);
-      text-align: center;
+      color: #f87171;
+      font-size: 0.82rem;
+      margin-top: 12px;
       min-height: 16px;
-      margin-top: var(--space-3);
-    }
-
-    .login-info-box {
-      margin-top: var(--space-5);
-      padding: var(--space-3) var(--space-4);
-      background: rgba(90,210,30,0.06);
-      border: 1px solid rgba(90,210,30,0.18);
-      border-radius: var(--radius-md);
-      font-size: var(--text-xs);
-      color: var(--text-muted);
       text-align: center;
-      line-height: 1.6;
     }
 
+    /* Info box */
+    .login-info-box {
+      margin-top: 28px;
+      padding: 14px 18px;
+      background: rgba(74, 160, 44, 0.07);
+      border: 1px solid rgba(74, 160, 44, 0.2);
+      border-radius: 12px;
+      font-size: 0.82rem;
+      color: #6b7280;
+      text-align: center;
+      line-height: 1.65;
+    }
+    .login-info-box strong { color: #9ca3af; }
+
+    /* Spinner */
     .spinner {
       display: inline-block; width: 15px; height: 15px;
-      border: 2px solid rgba(90,210,30,0.3);
-      border-top-color: #5ad21e;
+      border: 2px solid rgba(74,160,44,0.3);
+      border-top-color: #4aa02c;
       border-radius: 50%;
       animation: spin 0.7s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Feature icons verdes */
-    .login-feature-icon {
-      background: rgba(90,210,30,0.15) !important;
+    /* Loader */
+    #app-loader {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      background: #111314;
+      transition: opacity 0.4s;
+    }
+    #app-loader.hidden { opacity: 0; pointer-events: none; }
+    .loader-text { font-size: 1rem; color: #6b7280; letter-spacing: 0.05em; }
+    .loader-bar {
+      width: 160px; height: 3px;
+      background: rgba(74,160,44,0.15); border-radius: 99px; overflow: hidden;
+    }
+    .loader-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4aa02c, #7ed348);
+      border-radius: 99px;
+      animation: loadBar 1.6s ease-in-out infinite;
+    }
+    @keyframes loadBar {
+      0%   { width: 0%;  margin-left: 0%; }
+      50%  { width: 65%; margin-left: 18%; }
+      100% { width: 0%;  margin-left: 100%; }
     }
   </style>
 </head>
 <body>
+
 <div id="app-loader">
-  <div class="loader-logo">🏔️ Aire Libre y Aventura</div>
+  <div class="loader-text">Gestión Aire Libre y Aventura</div>
   <div class="loader-bar"><div class="loader-bar-fill"></div></div>
 </div>
+
 <div id="toast-container"></div>
 
-<div class="login-page">
+<div class="login-wrap">
+  <div class="login-title">Bienvenido</div>
+  <div class="login-subtitle">Ingresa con tu cuenta corporativa de Office 365</div>
 
-  <!-- ── Panel izquierdo: hero ── -->
-  <div class="login-hero">
-    <div class="login-hero-content">
-      <img src="img/logo.png" class="hero-logo" alt="Aire Libre y Aventura" />
-      <h1>Aire Libre y Aventura</h1>
-      <p>Sistema de gestión de proyectos y eventos deportivos</p>
-      <div class="login-features">
-        <div class="login-feature">
-          <div class="login-feature-icon">📋</div>
-          <div class="login-feature-text">
-            <p>Gestión de solicitudes</p>
-            <span>Seguimiento en tiempo real</span>
-          </div>
-        </div>
-        <div class="login-feature">
-          <div class="login-feature-icon">💰</div>
-          <div class="login-feature-text">
-            <p>Control financiero</p>
-            <span>Gastos, anticipos y utilidades</span>
-          </div>
-        </div>
-        <div class="login-feature">
-          <div class="login-feature-icon">📅</div>
-          <div class="login-feature-text">
-            <p>Calendario de eventos</p>
-            <span>Planificación y alertas</span>
-          </div>
-        </div>
-        <div class="login-feature">
-          <div class="login-feature-icon">👥</div>
-          <div class="login-feature-text">
-            <p>Equipo coordinado</p>
-            <span>Roles y áreas de trabajo</span>
-          </div>
-        </div>
-      </div>
-    </div>
+  <button class="ms-btn" id="ms-login-btn" onclick="iniciarSesionMicrosoft()">
+    <svg class="ms-logo" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
+      <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
+      <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
+      <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+    </svg>
+    Entrar con Microsoft 365
+  </button>
+
+  <p id="login-error"></p>
+
+  <div class="login-info-box">
+    🔐 <strong>Acceso seguro.</strong> Usa tu cuenta corporativa de Office 365.<br>
+    Si no tienes acceso, contacta al administrador.
   </div>
-
-  <!-- ── Panel derecho: login ── -->
-  <div class="login-panel">
-    <div class="login-form-wrap">
-      <div class="login-title">Bienvenido</div>
-      <div class="login-subtitle">Ingresa con tu cuenta corporativa de Office 365</div>
-
-      <button class="ms-login-btn" id="ms-login-btn" onclick="iniciarSesionMicrosoft()">
-        <svg class="ms-logo" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
-          <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
-          <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
-          <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
-          <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
-        </svg>
-        Entrar con Microsoft 365
-      </button>
-
-      <p id="login-error"></p>
-
-      <div class="login-info-box">
-        🔐 <strong>Acceso seguro.</strong> Usa tu cuenta corporativa de Office 365.<br>
-        Si no tienes acceso, contacta al administrador.
-      </div>
-    </div>
-  </div>
-
 </div>
 
 <!-- Scripts -->
@@ -182,23 +167,19 @@
 <script src="js/shared.js?v=9"></script>
 <script src="js/auth.js?v=9"></script>
 <script src="js/msal-auth.js?v=9"></script>
-
 <script>
+function hideLoader() {
+  const l = document.getElementById('app-loader');
+  if (l) { l.classList.add('hidden'); setTimeout(() => l.remove(), 500); }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const errEl = document.getElementById('login-error');
   const btn   = document.getElementById('ms-login-btn');
-
   try {
     const user = await handleMsalRedirect();
     if (user) {
-      btn.innerHTML = `
-        <svg class="ms-logo" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
-          <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
-          <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
-          <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
-          <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
-        </svg>
-        ✅ Bienvenido, ${user.nombre.split(' ')[0]}`;
+      btn.innerHTML = `<svg class="ms-logo" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="1" width="10" height="10" fill="#f25022"/><rect x="12" y="1" width="10" height="10" fill="#7fba00"/><rect x="1" y="12" width="10" height="10" fill="#00a4ef"/><rect x="12" y="12" width="10" height="10" fill="#ffb900"/></svg> ✅ Bienvenido, ${user.nombre.split(' ')[0]}`;
       setTimeout(() => { window.location.href = 'dashboard.html'; }, 700);
       return;
     }
@@ -206,7 +187,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     errEl.textContent = err.message;
     btn.disabled = false;
   }
-
   hideLoader();
 });
 
@@ -219,6 +199,5 @@ async function iniciarSesionMicrosoft() {
   await loginConMicrosoft();
 }
 </script>
-
 </body>
 </html>

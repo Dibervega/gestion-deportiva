@@ -19,7 +19,7 @@ const EMAILJS_CONFIG = {
 };
 
 const EMPRESA_CONFIG = {
-  nombre:   "Gestión Deportiva",
+  nombre:   "Gestión Aire Libre y Aventura",
   logo:     "🏆",
   moneda:   "COP",
   zonaHora: "America/Bogota",

@@ -44,7 +44,7 @@ function buildSidebar(activePage) {
     <div class="sidebar-logo">
       <div class="sidebar-logo-icon" style="background: linear-gradient(135deg, var(--primary-400), var(--accent-violet));">🚀</div>
       <div>
-        <div class="sidebar-logo-text">Gestión DIBER</div>
+        <div class="sidebar-logo-text">Gestión Aire Libre y Aventura</div>
         <div class="sidebar-logo-sub">Panel Administrativo</div>
       </div>
     </div>
