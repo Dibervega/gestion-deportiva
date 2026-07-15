@@ -118,11 +118,13 @@ function _logoutMsal() {
 }
 
 // Extender Auth.logout para cerrar sesión también en Microsoft
-if (typeof Auth !== 'undefined') {
-  const _originalLogout = Auth.logout.bind(Auth);
-  Auth.logout = function () {
-    sessionStorage.removeItem('gestion_session');
-    Auth._currentUser = null;
-    _logoutMsal(); // Redirige → cierra sesión Microsoft → vuelve a index.html
-  };
-}
+// Se ejecuta después de que el DOM esté listo para que Auth esté definido
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof Auth !== 'undefined') {
+    Auth.logout = function () {
+      this._currentUser = null;
+      sessionStorage.removeItem('gestion_session');
+      _logoutMsal(); // Redirige → cierra sesión Microsoft → vuelve a index.html
+    };
+  }
+});

@@ -152,14 +152,18 @@
   </div>
 </div>
 
-<!-- MSAL.js — Microsoft Authentication Library -->
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<!-- MSAL.js — Microsoft Authentication Library (CDN confiable) -->
+<script src="https://unpkg.com/@azure/msal-browser@2.38.3/dist/browser/msal-browser.min.js"></script>
 
-<script src="js/firebase-config.js?v=7"></script>
-<script src="js/app.js?v=7"></script>
-<script src="js/shared.js?v=7"></script>
-<script src="js/auth.js?v=7"></script>
-<script src="js/msal-auth.js?v=7"></script>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<script src="js/firebase-config.js?v=8"></script>
+<script src="js/app.js?v=8"></script>
+<script src="js/shared.js?v=8"></script>
+<script src="js/auth.js?v=8"></script>
+<script src="js/msal-auth.js?v=8"></script>
 
 <script>
 // ── Manejar respuesta de Microsoft al cargar la página ─────────
