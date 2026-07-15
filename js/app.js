@@ -19,7 +19,7 @@ let db, auth;
   const users = JSON.parse(localStorage.getItem('gestion_users') || '[]');
   if (!users.length) {
     localStorage.setItem('gestion_users', JSON.stringify([
-      { id: 'admin1', nombre: 'Admin Principal', email: 'admin@gestion.com', rol: 'admin', areas: [], activo: true, password: 'admin123', requirePasswordChange: false }
+      { id: 'admin1', nombre: 'Diber Vega', email: 'd.vega@airelibreyaventura.com', rol: 'admin', areas: [], activo: true }
     ]));
   }
 })();
