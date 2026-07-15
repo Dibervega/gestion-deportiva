@@ -230,14 +230,16 @@
     </main>
   </div>
 </div>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="js/firebase-config.js?v=6"></script>
-<script src="js/app.js?v=6"></script>
-<script src="js/auth.js?v=6"></script>
-<script src="js/email.js?v=6"></script>
-<script src="js/solicitudes.js?v=6"></script>
-<script src="js/shared.js?v=6"></script>
+<script src="js/firebase-config.js?v=7"></script>
+<script src="js/app.js?v=7"></script>
+<script src="js/auth.js?v=7"></script>
+<script src="js/msal-auth.js?v=7"></script>
+<script src="js/email.js?v=7"></script>
+<script src="js/solicitudes.js?v=7"></script>
+<script src="js/shared.js?v=7"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   if (!initPage('admin', { title: 'Administración', subtitle: 'Usuarios, áreas y configuración' })) return;
@@ -313,19 +315,14 @@ function openNuevoUsuario() {
           <div class="form-group"><label class="form-label">Nombre completo <span class="required">*</span></label>
             <input class="form-control" id="nu-nombre" placeholder="Nombre del usuario" />
           </div>
-          <div class="form-group"><label class="form-label">Email <span class="required">*</span></label>
-            <input class="form-control" type="email" id="nu-email" placeholder="usuario@empresa.com" />
+          <div class="form-group"><label class="form-label">Email O365 <span class="required">*</span></label>
+            <input class="form-control" type="email" id="nu-email" placeholder="usuario@tuempresa.com" />
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group"><label class="form-label">Rol</label>
-            <select class="form-control" id="nu-rol">
-              ${ROLES.map(r => `<option value="${r.id}">${r.label}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group"><label class="form-label">Contraseña Inicial <span class="required">*</span></label>
-            <input class="form-control" type="text" id="nu-password" placeholder="Contraseña temporal" />
-          </div>
+        <div class="form-group"><label class="form-label">Rol</label>
+          <select class="form-control" id="nu-rol">
+            ${ROLES.map(r => `<option value="${r.id}">${r.label}</option>`).join('')}
+          </select>
         </div>
         <div class="form-group"><label class="form-label">Áreas de trabajo</label>
           <div class="areas-selector">
@@ -333,7 +330,9 @@ function openNuevoUsuario() {
           </div>
         </div>
         <div style="background:var(--info-bg);border:1px solid rgba(0,212,255,.2);border-radius:var(--radius-md);padding:var(--space-3)">
-          <p style="font-size:var(--text-xs);color:var(--info-fg)">💡 El usuario se verá obligado a cambiar esta contraseña en su primer inicio de sesión.</p>
+          <p style="font-size:var(--text-xs);color:var(--info-fg)">
+            🔐 El acceso se controla por Microsoft 365. El correo ingresado aquí debe ser el mismo con el que el usuario inicia sesión en Office 365.
+          </p>
         </div>
       </div>
     </div>
@@ -343,16 +342,16 @@ function openNuevoUsuario() {
     </div>
   `);
   modal.querySelector('#btn-crear-user').addEventListener('click', () => {
-    const nombre   = modal.querySelector('#nu-nombre').value.trim();
-    const email    = modal.querySelector('#nu-email').value.trim();
-    const rol      = modal.querySelector('#nu-rol').value;
-    const password = modal.querySelector('#nu-password').value.trim();
-    const areas    = [...modal.querySelectorAll('.area-chip.selected')].map(c => c.dataset.area);
+    const nombre = modal.querySelector('#nu-nombre').value.trim();
+    const email  = modal.querySelector('#nu-email').value.trim().toLowerCase();
+    const rol    = modal.querySelector('#nu-rol').value;
+    const areas  = [...modal.querySelectorAll('.area-chip.selected')].map(c => c.dataset.area);
     
-    if (!nombre || !email || !password) { Toast.warning('Nombre, email y contraseña son obligatorios'); return; }
+    if (!nombre || !email) { Toast.warning('Nombre y email son obligatorios'); return; }
+    if (!email.includes('@')) { Toast.warning('Ingresa un correo válido'); return; }
     
     const users = Store.get('users') || [];
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) { Toast.error('Ya existe ese email'); return; }
+    if (users.find(u => u.email.toLowerCase() === email)) { Toast.error('Ya existe ese email'); return; }
     
     Store.push('users', { 
       id: generateId(), 
@@ -360,9 +359,7 @@ function openNuevoUsuario() {
       email, 
       rol, 
       areas, 
-      activo: true, 
-      password: password, 
-      requirePasswordChange: true 
+      activo: true,
     });
     close(); Toast.success(`Usuario ${nombre} creado`); renderUsers();
   });

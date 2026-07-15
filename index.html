@@ -8,6 +8,63 @@
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/components.css" />
   <link rel="stylesheet" href="css/pages.css" />
+  <style>
+    .ms-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      padding: 14px 20px;
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: var(--radius-lg);
+      background: rgba(255,255,255,0.06);
+      color: var(--text-primary);
+      font-size: var(--text-base);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: var(--font-sans);
+      text-decoration: none;
+      margin-top: var(--space-2);
+    }
+    .ms-btn:hover {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .ms-btn:active { transform: translateY(0); }
+    .ms-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .ms-logo {
+      width: 22px; height: 22px; flex-shrink: 0;
+    }
+    .login-divider {
+      display: flex; align-items: center; gap: var(--space-3);
+      margin: var(--space-5) 0; color: var(--text-muted); font-size: var(--text-xs);
+    }
+    .login-divider::before, .login-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border-subtle);
+    }
+    .login-info-box {
+      background: rgba(88,101,242,0.08);
+      border: 1px solid rgba(88,101,242,0.2);
+      border-radius: var(--radius-md);
+      padding: var(--space-3) var(--space-4);
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      margin-top: var(--space-4);
+      line-height: 1.6;
+    }
+    #login-error {
+      color: var(--danger-fg);
+      font-size: var(--text-sm);
+      text-align: center;
+      min-height: 20px;
+      white-space: pre-line;
+      margin-top: var(--space-3);
+    }
+  </style>
 </head>
 <body>
 
@@ -15,7 +72,7 @@
 <div id="app-loader">
   <div class="loader-logo">🏆 Gestión Deportiva</div>
   <div class="loader-bar"><div class="loader-bar-fill"></div></div>
-  <p style="color:var(--text-muted);font-size:var(--text-sm)">Cargando sistema...</p>
+  <p style="color:var(--text-muted);font-size:var(--text-sm)">Conectando con Microsoft...</p>
 </div>
 
 <!-- Toast container -->
@@ -54,10 +111,10 @@
           </div>
         </div>
         <div class="login-feature">
-          <div class="login-feature-icon">🔔</div>
+          <div class="login-feature-icon">🔒</div>
           <div class="login-feature-text">
-            <p>Notificaciones Automáticas</p>
-            <span>Alertas en tiempo real y por email</span>
+            <p>Acceso Seguro con Microsoft</p>
+            <span>Autenticación empresarial O365</span>
           </div>
         </div>
       </div>
@@ -70,59 +127,82 @@
 
       <div style="font-size:2.5rem; margin-bottom: var(--space-4); text-align:center">🚀</div>
       <h2 class="login-title" style="text-align:center">Bienvenido</h2>
-      <p class="login-subtitle" style="text-align:center">Ingresa con tu cuenta empresarial</p>
+      <p class="login-subtitle" style="text-align:center">Usa tu cuenta empresarial de Microsoft 365</p>
 
-      <form class="login-form" id="login-form" novalidate>
+      <!-- Botón Microsoft -->
+      <button class="ms-btn" id="ms-login-btn" onclick="iniciarSesionMicrosoft()">
+        <!-- Logo oficial de Microsoft SVG -->
+        <svg class="ms-logo" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
+          <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
+          <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
+          <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+        </svg>
+        Entrar con Microsoft 365
+      </button>
 
-        <div class="form-group">
-          <label class="form-label" for="login-email">Correo electrónico</label>
-          <input
-            class="form-control"
-            type="email"
-            id="login-email"
-            placeholder="tu@empresa.com"
-            autocomplete="email"
-            required
-          />
-        </div>
+      <p id="login-error"></p>
 
-        <div class="form-group">
-          <label class="form-label" for="login-password">Contraseña</label>
-          <div style="position:relative">
-            <input
-              class="form-control"
-              type="password"
-              id="login-password"
-              placeholder="••••••••"
-              autocomplete="current-password"
-              required
-              style="padding-right: 44px"
-            />
-            <button type="button" id="pass-toggle"
-              style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:1rem;color:var(--text-muted);border:none;background:none;cursor:pointer">
-              👁️
-            </button>
-          </div>
-        </div>
-
-        <p id="login-error" style="color:var(--danger-fg);font-size:var(--text-sm);text-align:center;min-height:20px"></p>
-
-        <button class="btn btn-primary btn-lg btn-block" type="submit" id="login-btn">
-          Iniciar Sesión
-        </button>
-      </form>
-
-
+      <div class="login-info-box">
+        🔐 <strong>Acceso seguro.</strong> Ingresa con tu cuenta corporativa de Office 365.
+        Si no tienes acceso, contacta al administrador del sistema para que registre tu correo.
+      </div>
 
     </div>
   </div>
 </div>
 
-<script src="js/firebase-config.js?v=6"></script>
-<script src="js/app.js?v=6"></script>
-<script src="js/shared.js?v=6"></script>
-<script src="js/auth.js?v=6"></script>
+<!-- MSAL.js — Microsoft Authentication Library -->
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+
+<script src="js/firebase-config.js?v=7"></script>
+<script src="js/app.js?v=7"></script>
+<script src="js/shared.js?v=7"></script>
+<script src="js/auth.js?v=7"></script>
+<script src="js/msal-auth.js?v=7"></script>
+
+<script>
+// ── Manejar respuesta de Microsoft al cargar la página ─────────
+document.addEventListener('DOMContentLoaded', async () => {
+  const errEl  = document.getElementById('login-error');
+  const btn    = document.getElementById('ms-login-btn');
+
+  try {
+    // Intentar procesar la respuesta de Microsoft (si viene del redirect)
+    const user = await handleMsalRedirect();
+
+    if (user) {
+      // ✅ Login exitoso
+      btn.innerHTML = `
+        <svg class="ms-logo" viewBox="0 0 23 23" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="10" height="10" fill="#f25022"/>
+          <rect x="12" y="1" width="10" height="10" fill="#7fba00"/>
+          <rect x="1" y="12" width="10" height="10" fill="#00a4ef"/>
+          <rect x="12" y="12" width="10" height="10" fill="#ffb900"/>
+        </svg>
+        ✅ ¡Bienvenido, ${user.nombre.split(' ')[0]}!`;
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 800);
+      return;
+    }
+  } catch (err) {
+    // Error: usuario no registrado u otro problema
+    errEl.textContent = err.message;
+    btn.disabled = false;
+  }
+
+  // Si no hay sesión activa, mostrar la pantalla de login
+  hideLoader();
+});
+
+async function iniciarSesionMicrosoft() {
+  const btn   = document.getElementById('ms-login-btn');
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner"></span> Conectando con Microsoft...`;
+  await loginConMicrosoft(); // redirige al servidor de Microsoft
+}
+</script>
+
 </body>
 </html>
-
-
