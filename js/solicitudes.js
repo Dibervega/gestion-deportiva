@@ -15,8 +15,22 @@ function getEstadoGasto(id) {
 }
 
 const Solicitudes = {
+  // Verifica si un evento tiene cierre contable aprobado
+  isCerrado(s) {
+    return !!(s.cierreEvento && s.cierreEvento.aprobadoContabilidad === true);
+  },
+
+  // Devuelve todos los eventos con cierre contable aprobado
+  getCerrados() {
+    return (Store.get('solicitudes') || []).filter(s => this.isCerrado(s))
+      .sort((a, b) => new Date(b.cierreEvento.aprobadoEn) - new Date(a.cierreEvento.aprobadoEn));
+  },
+
   getAll(filtros = {}) {
     let data = Store.get('solicitudes') || [];
+
+    // ── Excluir eventos con cierre contable aprobado (van a "Eventos Cerrados")
+    data = data.filter(s => !this.isCerrado(s));
 
     // Filtro por roles/áreas
     if (typeof canSeeAllProjects === 'function' && !canSeeAllProjects()) {
