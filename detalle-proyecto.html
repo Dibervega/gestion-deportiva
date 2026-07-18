@@ -84,7 +84,8 @@ function renderProject() {
   const transMap = {
     pendiente:['en_proceso','cancelado'], en_proceso:['revision','cancelado','pendiente'],
     revision:['aprobado','en_proceso','cancelado'], aprobado:['completado','en_proceso','cancelado'],
-    completado:[], cancelado:['pendiente'],
+    completado:['pendiente_pago'], cancelado:['pendiente'],
+    pendiente_pago: [],
   };
   const nextStates = transMap[SOL.estado] || [];
 
@@ -109,7 +110,7 @@ function renderProject() {
 
     <!-- Pipeline -->
     <div class="status-pipeline" style="margin-top:var(--space-5)">
-      ${['pendiente','en_proceso','revision','aprobado','completado'].map(eid => {
+      ${['pendiente','en_proceso','revision','aprobado','completado','pendiente_pago'].map(eid => {
         const e   = getEstado(eid);
         const done = (SOL.historial||[]).some(h => h.estado === eid);
         const act  = SOL.estado === eid;
@@ -141,7 +142,7 @@ function renderProject() {
       <div style="display:flex;gap:var(--space-2);flex-wrap:wrap">
         ${nextStates.map(ns => {
           const e = getEstado(ns);
-          const cls = ns==='cancelado' ? 'btn-danger' : ns==='completado' ? 'btn-success' : 'btn-secondary';
+          const cls = ns==='cancelado' ? 'btn-danger' : ns==='completado' ? 'btn-success' : ns==='pendiente_pago' ? 'btn-warning' : 'btn-secondary';
           return `<button class="btn ${cls} btn-sm" onclick="cambiarEstadoRapido('${ns}')">${e.emoji} ${e.label}</button>`;
         }).join('')}
       </div>
