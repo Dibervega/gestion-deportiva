@@ -15,6 +15,18 @@ function getEstadoGasto(id) {
 }
 
 const Solicitudes = {
+  // Verifica si un evento está en cobranza (pendiente de pago)
+  isPendientePago(s) {
+    return s.estado === 'pendiente_pago';
+  },
+
+  // Devuelve todos los eventos en estado pendiente_pago
+  getPendientePago() {
+    return (Store.get('solicitudes') || [])
+      .filter(s => s.estado === 'pendiente_pago')
+      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  },
+
   // Verifica si un evento tiene cierre contable aprobado
   isCerrado(s) {
     return !!(s.cierreEvento && s.cierreEvento.aprobadoContabilidad === true);
@@ -29,8 +41,8 @@ const Solicitudes = {
   getAll(filtros = {}) {
     let data = Store.get('solicitudes') || [];
 
-    // ── Excluir eventos con cierre contable aprobado (van a "Eventos Cerrados")
-    data = data.filter(s => !this.isCerrado(s));
+    // ── Excluir eventos en cobranza (Pendiente de Pago) y con cierre contable aprobado
+    data = data.filter(s => !this.isCerrado(s) && !this.isPendientePago(s));
 
     // Filtro por roles/áreas
     if (typeof canSeeAllProjects === 'function' && !canSeeAllProjects()) {

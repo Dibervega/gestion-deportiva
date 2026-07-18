@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cobranza — Gestión Aire Libre y Aventura</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/pages.css" />
+  <style>
+    .cobro-card {
+      background: var(--bg-elevated);
+      border: 1px solid rgba(251,191,36,.2);
+      border-left: 4px solid #f59e0b;
+      border-radius: var(--radius-xl);
+      padding: var(--space-5);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      box-shadow: var(--shadow-card);
+      display: flex; flex-direction: column; gap: var(--space-3);
+    }
+    .cobro-card:hover {
+      border-color: rgba(251,191,36,.5);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(251,191,36,.1), var(--shadow-lg);
+    }
+    .cobro-saldo {
+      font-family: var(--font-display); font-size: 1.5rem; font-weight: 800;
+      color: #f59e0b;
+    }
+    .cobro-info-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: var(--space-3) var(--space-4);
+      background: rgba(251,191,36,.06);
+      border: 1px solid rgba(251,191,36,.15);
+      border-radius: var(--radius-md);
+      font-size: var(--text-xs);
+    }
+    .cobro-info-row .label { color: var(--text-muted); }
+    .cobro-info-row .val   { font-weight: 700; color: var(--text-primary); }
+    .summary-strip {
+      display: grid; grid-template-columns: repeat(4,1fr); gap: var(--space-3);
+      margin-bottom: var(--space-5);
+    }
+    .summary-card {
+      background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl); padding: var(--space-4) var(--space-5); text-align: center;
+    }
+    .summary-card.accent-gold { border-color: rgba(251,191,36,.25); }
+    .summary-card .val { font-size: var(--text-2xl); font-weight: 800; font-family: var(--font-display); }
+    .summary-card .lbl { font-size: var(--text-xs); color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: .06em; }
+    .dias-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: var(--text-xs); font-weight: 700; padding: 3px 8px;
+      border-radius: 999px;
+    }
+    .dias-ok      { background: rgba(16,185,129,.12); color: #10b981; border: 1px solid rgba(16,185,129,.25); }
+    .dias-warning { background: rgba(251,191,36,.15); color: #f59e0b; border: 1px solid rgba(251,191,36,.3); }
+    .dias-danger  { background: rgba(244,63,94,.12);  color: #f43f5e; border: 1px solid rgba(244,63,94,.25); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+    @media (max-width: 768px) { .summary-strip { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 480px) { .summary-strip { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div id="app-loader"><div class="loader-logo">🏔️ Gestión Aire Libre y Aventura</div><div class="loader-bar"><div class="loader-bar-fill"></div></div></div>
+<div id="toast-container"></div>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <div class="main-content">
+    <header class="topbar" id="topbar"></header>
+    <main class="page-content page-enter">
+
+      <!-- Filtros -->
+      <div class="card" style="margin-bottom:var(--space-4)">
+        <div class="card-body" style="padding:var(--space-4) var(--space-5)">
+          <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;align-items:center">
+            <div class="search-bar" style="flex:1;min-width:180px">
+              <span class="search-bar-icon">🔍</span>
+              <input class="form-control" type="text" id="filter-buscar" placeholder="Buscar evento, cliente o ticket..." oninput="renderCobranza()" />
+            </div>
+            <select class="form-control" id="filter-orden" style="width:auto;min-width:150px" onchange="renderCobranza()">
+              <option value="saldo_desc">💰 Mayor saldo primero</option>
+              <option value="antiguedad">⏰ Más antiguos primero</option>
+              <option value="evento">📅 Fecha de evento</option>
+            </select>
+            <div style="color:var(--text-muted);font-size:var(--text-sm)" id="result-count"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="summary-strip" id="summary-strip"></div>
+
+      <!-- Grid -->
+      <div id="cobro-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:var(--space-4)"></div>
+
+    </main>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/solicitudes.js"></script>
+<script src="js/shared.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (!initPage('cobranza', {
+    title: '💳 Cobranza',
+    subtitle: 'Eventos entregados con saldo pendiente de cobro',
+  })) return;
+  renderCobranza();
+});
+
+function diasDesde(fecha) {
+  if (!fecha) return null;
+  return Math.floor((Date.now() - new Date(fecha).getTime()) / 86400000);
+}
+
+function diasBadge(dias) {
+  if (dias === null) return '';
+  if (dias < 15) return `<span class="dias-badge dias-ok">⏱ ${dias}d en cobranza</span>`;
+  if (dias < 30) return `<span class="dias-badge dias-warning">⚠️ ${dias}d en cobranza</span>`;
+  return `<span class="dias-badge dias-danger">🔴 ${dias}d en cobranza</span>`;
+}
+
+function renderCobranza() {
+  const q     = document.getElementById('filter-buscar')?.value.toLowerCase() || '';
+  const orden = document.getElementById('filter-orden')?.value || 'saldo_desc';
+
+  let data = Solicitudes.getPendientePago();
+
+  if (q) data = data.filter(s =>
+    s.titulo.toLowerCase().includes(q) ||
+    s.cliente.toLowerCase().includes(q) ||
+    (s.ticketId||'').toLowerCase().includes(q)
+  );
+
+  // Ordenar
+  data.sort((a, b) => {
+    const sA = (a.financiero?.valorCotizado||0) - (a.financiero?.anticipo||0);
+    const sB = (b.financiero?.valorCotizado||0) - (b.financiero?.anticipo||0);
+    if (orden === 'saldo_desc')  return sB - sA;
+    if (orden === 'antiguedad')  return new Date(a.updatedAt) - new Date(b.updatedAt);
+    if (orden === 'evento')      return new Date(a.fechaEvento) - new Date(b.fechaEvento);
+    return 0;
+  });
+
+  document.getElementById('result-count').textContent = `${data.length} en cobranza`;
+  renderSummary(data);
+  renderGrid(data);
+}
+
+function renderSummary(data) {
+  const strip = document.getElementById('summary-strip');
+  const totalValor  = data.reduce((s,x) => s + (x.financiero?.valorCotizado||0), 0);
+  const totalCobrado = data.reduce((s,x) => s + (x.financiero?.anticipo||0), 0);
+  const totalSaldo   = totalValor - totalCobrado;
+  const vencidos = data.filter(s => diasDesde(s.updatedAt) >= 30).length;
+
+  strip.innerHTML = `
+    <div class="summary-card">
+      <div class="val" style="color:var(--primary-300)">${data.length}</div>
+      <div class="lbl">En cobranza</div>
+    </div>
+    <div class="summary-card">
+      <div class="val" style="color:var(--text-muted)">${Fmt.currency(totalValor)}</div>
+      <div class="lbl">Valor total</div>
+    </div>
+    <div class="summary-card">
+      <div class="val" style="color:var(--success-fg)">${Fmt.currency(totalCobrado)}</div>
+      <div class="lbl">Ya cobrado</div>
+    </div>
+    <div class="summary-card accent-gold">
+      <div class="val" style="color:#f59e0b">${Fmt.currency(totalSaldo)}</div>
+      <div class="lbl">Saldo pendiente</div>
+    </div>
+  `;
+}
+
+function renderGrid(data) {
+  const grid = document.getElementById('cobro-grid');
+  if (!data.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-state-icon">💳</div>
+      <div class="empty-state-title">Sin eventos en cobranza</div>
+      <div class="empty-state-desc">Cuando un evento pase a "Pendiente de Pago" aparecerá aquí</div>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = data.map((s, i) => {
+    const areas  = Array.isArray(s.areas) ? s.areas : [s.area].filter(Boolean);
+    const asig   = getUserById(s.asignadoA);
+    const fin    = s.financiero || {};
+    const valor  = fin.valorCotizado || 0;
+    const cobrado = fin.anticipo || 0;
+    const saldo  = valor - cobrado;
+    const pct    = valor > 0 ? Math.round((cobrado / valor) * 100) : 0;
+    const dias   = diasDesde(s.updatedAt);
+
+    return `<div class="cobro-card animate-fade-in" style="animation-delay:${i*30}ms" onclick="window.location.href='detalle-proyecto.html?id=${s.id}'">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="min-width:0">
+          <div class="request-id">${escHtml(s.ticketId)}</div>
+          <div class="request-title" style="font-size:var(--text-base);font-weight:700;margin:4px 0">${escHtml(s.titulo)}</div>
+          <div class="request-client">👤 ${escHtml(s.cliente)}</div>
+        </div>
+        ${diasBadge(dias)}
+      </div>
+
+      <div style="display:flex;gap:var(--space-2);flex-wrap:wrap">
+        ${areas.slice(0,2).map(aId => { const a=getArea(aId); return `<span class="badge badge-area">${a.emoji} ${a.nombre}</span>`; }).join('')}
+        ${areas.length > 2 ? `<span class="badge badge-pending">+${areas.length-2}</span>` : ''}
+        <span class="badge badge-collection">💳 Pendiente de Pago</span>
+      </div>
+
+      <!-- Saldo destacado -->
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:8px">
+        <div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:2px">Saldo pendiente</div>
+          <div class="cobro-saldo">${Fmt.currency(saldo)}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:var(--text-xs);color:var(--text-muted)">Cobrado ${pct}%</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted)">${Fmt.currency(cobrado)} / ${Fmt.currency(valor)}</div>
+        </div>
+      </div>
+
+      <!-- Barra de progreso de cobro -->
+      <div class="progress-wrap">
+        <div class="progress-bar ${pct >= 75 ? 'success' : pct >= 40 ? '' : 'warning'}" style="width:${pct}%"></div>
+      </div>
+
+      <!-- Info extra -->
+      <div class="cobro-info-row">
+        <span class="label">📅 Fecha evento</span>
+        <span class="val">${s.fechaEvento ? Fmt.date(s.fechaEvento) : '—'}</span>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:var(--space-2);border-top:1px solid var(--border-subtle)">
+        <div style="font-size:var(--text-xs);color:var(--text-muted)">
+          ${s.contacto ? `📞 ${escHtml(s.contacto)}` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:var(--space-2)">
+          ${asig ? `<div class="avatar avatar-sm" style="background:${avatarColor(asig.nombre)}" data-tooltip="${escHtml(asig.nombre)}">${Fmt.initials(asig.nombre)}</div>` : ''}
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();window.location.href='detalle-proyecto.html?id=${s.id}'" data-tooltip="Ver detalle">👁️</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

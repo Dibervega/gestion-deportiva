@@ -48,12 +48,13 @@ function getAreas() {
 
 // ── Constantes de estados y catálogos ───────────────────────────
 const ESTADOS = [
-  { id: "pendiente",  label: "Pendiente",   badge: "badge-pending",   emoji: "⏳" },
-  { id: "en_proceso", label: "En Proceso",  badge: "badge-progress",  emoji: "🔄" },
-  { id: "revision",   label: "En Revisión", badge: "badge-review",    emoji: "👁️" },
-  { id: "aprobado",   label: "Aprobado",    badge: "badge-approved",  emoji: "✅" },
-  { id: "completado", label: "Completado",  badge: "badge-completed", emoji: "🎯" },
-  { id: "cancelado",  label: "Cancelado",   badge: "badge-cancelled", emoji: "❌" },
+  { id: "pendiente",       label: "Pendiente",          badge: "badge-pending",    emoji: "⏳" },
+  { id: "en_proceso",     label: "En Proceso",         badge: "badge-progress",   emoji: "🔄" },
+  { id: "revision",       label: "En Revisión",        badge: "badge-review",     emoji: "👁️" },
+  { id: "aprobado",       label: "Aprobado",           badge: "badge-approved",   emoji: "✅" },
+  { id: "completado",     label: "Completado",         badge: "badge-completed",  emoji: "🎯" },
+  { id: "pendiente_pago", label: "Pendiente de Pago",  badge: "badge-collection", emoji: "💳" },
+  { id: "cancelado",      label: "Cancelado",          badge: "badge-cancelled",  emoji: "❌" },
 ];
 const PRIORIDADES = [
   { id: "alta",  label: "Alta",  badge: "badge-high",   emoji: "🔴" },

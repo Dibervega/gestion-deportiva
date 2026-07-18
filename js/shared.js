@@ -13,6 +13,7 @@ function buildSidebar(activePage) {
     { page: 'calendario',        href: 'calendario.html',         icon: '📅', label: 'Calendario' },
     { page: 'cierres',           href: 'cierres.html',            icon: '📄', label: 'Cierres / Reportes', adminOnly: true },
     { page: 'eventos-cerrados',  href: 'eventos-cerrados.html',   icon: '🔒', label: 'Eventos Cerrados',   adminOnly: true },
+    { page: 'cobranza',          href: 'cobranza.html',           icon: '💳', label: 'Cobranza',           adminOnly: true },
     { page: 'financiero',        href: 'financiero.html',         icon: '💰', label: 'Financiero', adminOnly: true },
     { page: 'gastos',            href: 'gastos-generales.html',   icon: '💸', label: 'Gastos Generales' },
     { page: 'cuentas',           href: 'cuentas-cobro.html',      icon: '🧾', label: 'Cuentas de Cobro' },
@@ -76,10 +77,11 @@ function buildSidebar(activePage) {
 function updateNavBadge() {
   const badge = document.getElementById('nav-badge-sol');
   if (!badge) return;
-  // Excluir eventos cerrados (con cierre contable aprobado) del contador
+  // Excluir eventos en cobranza y cerrados del contador de solicitudes
   const activas = (Store.get('solicitudes') || []).filter(s =>
     !['completado','cancelado'].includes(s.estado) &&
-    !(s.cierreEvento && s.cierreEvento.aprobadoContabilidad === true)
+    !(s.cierreEvento && s.cierreEvento.aprobadoContabilidad === true) &&
+    s.estado !== 'pendiente_pago'
   );
   badge.textContent = activas.length;
   badge.style.display = activas.length > 0 ? 'flex' : 'none';

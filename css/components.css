@@ -67,6 +67,7 @@
 .badge-approved  { background:rgba(0,212,255,.12);   color:var(--accent-cyan);  border:1px solid rgba(0,212,255,.2); }
 .badge-completed { background:rgba(16,185,129,.15);  color:var(--success-fg);   border:1px solid rgba(16,185,129,.2); }
 .badge-cancelled { background:rgba(244,63,94,.12);   color:var(--danger-fg);    border:1px solid rgba(244,63,94,.2); }
+.badge-collection{ background:rgba(251,191,36,.15);  color:#f59e0b;             border:1px solid rgba(251,191,36,.3); } /* Pendiente de Pago / Cobranza */
 .badge-high   { background:rgba(244,63,94,.12);  color:#fb7185; border:1px solid rgba(244,63,94,.25); }
 .badge-medium { background:rgba(245,158,11,.12); color:#fbbf24; border:1px solid rgba(245,158,11,.25); }
 .badge-low    { background:rgba(16,185,129,.12); color:#34d399; border:1px solid rgba(16,185,129,.25); }

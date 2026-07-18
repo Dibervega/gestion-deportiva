@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -390,7 +390,8 @@ function openCambioEstado(id) {
   const transiciones = {
     pendiente:['en_proceso','cancelado'], en_proceso:['revision','cancelado','pendiente'],
     revision:['aprobado','en_proceso','cancelado'], aprobado:['completado','en_proceso','cancelado'],
-    completado:[], cancelado:['pendiente'],
+    completado:['pendiente_pago'], cancelado:['pendiente'],
+    pendiente_pago: [],
   };
   const opciones = transiciones[sol.estado] || [];
   if (!opciones.length) { Toast.info('Sin transiciones disponibles'); return; }
