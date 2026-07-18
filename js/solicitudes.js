@@ -144,11 +144,13 @@ const Solicitudes = {
     const sol = solicitudes[idx];
     const anterior = sol.estado;
     const transiciones = {
-      pendiente: ['en_proceso','cancelado'],
-      en_proceso:['revision','cancelado','pendiente'],
-      revision:  ['aprobado','en_proceso','cancelado'],
-      aprobado:  ['completado','en_proceso','cancelado'],
-      completado:[], cancelado:['pendiente'],
+      pendiente:  ['en_proceso','cancelado'],
+      en_proceso: ['revision','cancelado','pendiente'],
+      revision:   ['aprobado','en_proceso','cancelado'],
+      aprobado:   ['completado','en_proceso','cancelado'],
+      completado: ['pendiente_pago'],
+      pendiente_pago: [],
+      cancelado:  ['pendiente'],
     };
     if (anterior !== nuevoEstado && !transiciones[anterior]?.includes(nuevoEstado))
       throw new Error(`No se puede pasar de ${anterior} a ${nuevoEstado}`);
